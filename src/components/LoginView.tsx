@@ -102,6 +102,9 @@ const LoginView = ({ onLogin }: LoginViewProps) => {
             </p>
             <p>You'll be asked to set your own password right after login.</p>
           </div>
+          <a href="/super-admin" className="block text-center text-xs text-muted-foreground hover:text-primary underline mt-2">
+            Super-Admin access →
+          </a>
         </div>
       </div>
     </div>
