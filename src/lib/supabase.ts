@@ -1,5 +1,4 @@
 // External Supabase client — points to the user's own Supabase project.
-// This bypasses the Lovable Cloud auto-generated client.
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://iivqizldfsvpekcggxut.supabase.co";
@@ -8,7 +7,7 @@ const SUPABASE_ANON_KEY =
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: localStorage,
+    storage: typeof window !== "undefined" ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
   },
