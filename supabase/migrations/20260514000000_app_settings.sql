@@ -28,5 +28,5 @@ create policy "Public write app_settings"
 insert into public.app_settings (key, value)
 values
   ('super_admin_password_salt', 'dunnes-super-admin'),
-  ('super_admin_password_hash', '6b54c10c2fdf2cdfafe3f8d1f8c4b53d4f0fe1c2c4bce9d1e91bd2c1b5fcb3b6')
+  ('super_admin_password_hash', '75010c2bce1042d5c5ce11527d8f97a54dc0237915b071f5bd8a1df5773ce57d')
 on conflict (key) do nothing;
