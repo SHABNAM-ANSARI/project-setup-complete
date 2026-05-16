@@ -98,9 +98,7 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
       division: editing.division || null,
       gender: editing.gender || null,
       dob: editing.dob || null,
-      parent_name: editing.parent_name || null,
       contact: editing.contact || null,
-      address: editing.address || null,
       exam_year: editing.exam_year || null,
     };
     const { error } = await supabase
