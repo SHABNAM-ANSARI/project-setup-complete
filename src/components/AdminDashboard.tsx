@@ -28,9 +28,7 @@ interface DBStudent {
   division: string | null;
   gender: string | null;
   dob: string | null;
-  parent_name: string | null;
   contact: string | null;
-  address: string | null;
   exam_year: string | null;
 }
 
@@ -42,9 +40,7 @@ const emptyStudent = (cls: string): Partial<DBStudent> => ({
   division: "A",
   gender: "M",
   dob: "",
-  parent_name: "",
   contact: "",
-  address: "",
   exam_year: "2026-27",
 });
 
