@@ -418,7 +418,6 @@ const StudentsTab = ({
                   </td>
                   <td className="px-2 py-1.5 text-center">{s.division || "—"}</td>
                   <td className="px-2 py-1.5 text-center">{s.gender || "—"}</td>
-                  <td className="px-2 py-1.5">{s.parent_name || "—"}</td>
                   <td className="px-2 py-1.5">{s.contact || "—"}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button onClick={() => onEdit(s)} className="text-primary font-bold text-xs mr-3 hover:underline">Edit</button>
