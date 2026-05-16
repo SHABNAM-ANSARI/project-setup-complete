@@ -539,17 +539,11 @@ const StudentEditModal = ({
           <Field label="Date of Birth">
             <input type="date" className="input-field" value={editing.dob || ""} onChange={(e) => set("dob", e.target.value)} />
           </Field>
-          <Field label="Parent / Guardian Name" full>
-            <input className="input-field" value={editing.parent_name || ""} onChange={(e) => set("parent_name", e.target.value)} />
-          </Field>
           <Field label="Contact No">
             <input className="input-field" value={editing.contact || ""} onChange={(e) => set("contact", e.target.value)} />
           </Field>
           <Field label="Exam Year">
             <input className="input-field" value={editing.exam_year || ""} onChange={(e) => set("exam_year", e.target.value)} />
-          </Field>
-          <Field label="Address" full>
-            <textarea rows={2} className="input-field" value={editing.address || ""} onChange={(e) => set("address", e.target.value)} />
           </Field>
         </div>
         <div className="flex justify-end gap-2 mt-5">
