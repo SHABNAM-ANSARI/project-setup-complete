@@ -103,7 +103,7 @@ export function RecordsTable({ className, term }: Props) {
     return out;
   }, [students, marks, subjects]);
 
-  const startEdit = (id: string, current: Record<string, unknown>) => {
+  const startEdit = (id: string, current: Record<string, any>) => {
     setEditId(id);
     setDraft({ ...current });
   };

@@ -28,9 +28,7 @@ interface DBStudent {
   division: string | null;
   gender: string | null;
   dob: string | null;
-  parent_name: string | null;
   contact: string | null;
-  address: string | null;
   exam_year: string | null;
 }
 
@@ -42,9 +40,7 @@ const emptyStudent = (cls: string): Partial<DBStudent> => ({
   division: "A",
   gender: "M",
   dob: "",
-  parent_name: "",
   contact: "",
-  address: "",
   exam_year: "2026-27",
 });
 
@@ -102,9 +98,7 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
       division: editing.division || null,
       gender: editing.gender || null,
       dob: editing.dob || null,
-      parent_name: editing.parent_name || null,
       contact: editing.contact || null,
-      address: editing.address || null,
       exam_year: editing.exam_year || null,
     };
     const { error } = await supabase
@@ -424,7 +418,6 @@ const StudentsTab = ({
                   </td>
                   <td className="px-2 py-1.5 text-center">{s.division || "—"}</td>
                   <td className="px-2 py-1.5 text-center">{s.gender || "—"}</td>
-                  <td className="px-2 py-1.5">{s.parent_name || "—"}</td>
                   <td className="px-2 py-1.5">{s.contact || "—"}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button onClick={() => onEdit(s)} className="text-primary font-bold text-xs mr-3 hover:underline">Edit</button>
@@ -546,17 +539,11 @@ const StudentEditModal = ({
           <Field label="Date of Birth">
             <input type="date" className="input-field" value={editing.dob || ""} onChange={(e) => set("dob", e.target.value)} />
           </Field>
-          <Field label="Parent / Guardian Name" full>
-            <input className="input-field" value={editing.parent_name || ""} onChange={(e) => set("parent_name", e.target.value)} />
-          </Field>
           <Field label="Contact No">
             <input className="input-field" value={editing.contact || ""} onChange={(e) => set("contact", e.target.value)} />
           </Field>
           <Field label="Exam Year">
             <input className="input-field" value={editing.exam_year || ""} onChange={(e) => set("exam_year", e.target.value)} />
-          </Field>
-          <Field label="Address" full>
-            <textarea rows={2} className="input-field" value={editing.address || ""} onChange={(e) => set("address", e.target.value)} />
           </Field>
         </div>
         <div className="flex justify-end gap-2 mt-5">
