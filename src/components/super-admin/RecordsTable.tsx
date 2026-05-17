@@ -36,6 +36,8 @@ interface Props {
 type TabKey = "students" | "marks";
 
 export function RecordsTable({ className, term }: Props) {
+  const { config } = usePortalConfig();
+  const extraCols = enabledExtraFields(config);
   const [tab, setTab] = useState<TabKey>("students");
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [marks, setMarks] = useState<MarkRecord[]>([]);
@@ -49,7 +51,7 @@ export function RecordsTable({ className, term }: Props) {
     const [s, m] = await Promise.all([
       supabase
         .from("students")
-        .select("id,gr_no,name,class_name,roll_no,division,gender")
+        .select("id,gr_no,name,class_name,roll_no,division,gender,extra")
         .eq("class_name", className)
         .order("roll_no", { ascending: true }),
       supabase
