@@ -4,6 +4,7 @@ import { Trash2, Edit3, Search, RefreshCw, Save, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getSubjectsForClass } from "@/data/subjectMapping";
 import { calcResult, type MarkRow } from "@/lib/grades";
+import { usePortalConfig, enabledExtraFields } from "@/lib/portalConfig";
 
 interface StudentRow {
   id: string;
@@ -13,6 +14,7 @@ interface StudentRow {
   roll_no: string | null;
   division: string | null;
   gender: string | null;
+  extra: Record<string, string> | null;
 }
 
 interface MarkRecord {
