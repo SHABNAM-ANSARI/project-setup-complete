@@ -224,6 +224,9 @@ export function RecordsTable({ className, term }: Props) {
                 <th className="text-left px-3 py-2">Name</th>
                 <th className="text-left px-3 py-2">Div</th>
                 <th className="text-left px-3 py-2">Gender</th>
+                {extraCols.map((c) => (
+                  <th key={c.key} className="text-left px-3 py-2">{c.label}</th>
+                ))}
                 <th className="text-right px-3 py-2">Total</th>
                 <th className="text-right px-3 py-2">%</th>
                 <th className="text-center px-3 py-2">Grade</th>
