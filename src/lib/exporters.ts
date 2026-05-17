@@ -1,15 +1,17 @@
-// Bulk class export — Excel + merged-PDF.
+// Bulk class export — Excel + branded jsPDF respecting portal configuration.
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { getSubjectsForClass } from "@/data/subjectMapping";
 import { calcResult, type MarkRow } from "@/lib/grades";
+import type { PortalConfig } from "@/lib/portalConfig";
+import { enabledExtraFields } from "@/lib/portalConfig";
 
 export interface StudentForExport {
   gr_no: string;
   name: string;
   roll_no?: string | null;
   division?: string | null;
+  extra?: Record<string, string> | null;
 }
 
 export interface MarkForExport {
@@ -17,6 +19,7 @@ export interface MarkForExport {
   subject: string;
   marks: number | null;
   grade: string | null;
+  term?: string;
 }
 
 export function exportClassExcel(opts: {
@@ -24,16 +27,19 @@ export function exportClassExcel(opts: {
   term: string;
   students: StudentForExport[];
   marks: MarkForExport[];
+  config: PortalConfig;
 }) {
-  const { className, term, students, marks } = opts;
+  const { className, term, students, marks, config } = opts;
   const subjects = getSubjectsForClass(className);
   const regulars = subjects.filter((s) => s.type === "regular");
   const credits = subjects.filter((s) => s.type === "credit");
+  const extras = enabledExtraFields(config);
 
   const header = [
     "GR No",
     "Roll",
     "Student Name",
+    ...extras.map((e) => e.label),
     ...regulars.map((s) => s.name),
     ...credits.map((s) => `${s.name} (Grade)`),
     "Total",
@@ -55,6 +61,7 @@ export function exportClassExcel(opts: {
         s.gr_no,
         s.roll_no || "",
         s.name,
+        ...extras.map((e) => s.extra?.[e.key] || ""),
         ...regulars.map((sub) => byKey[sub.name]?.marks ?? ""),
         ...credits.map((sub) => byKey[sub.name]?.grade ?? ""),
         summary.total,
@@ -66,7 +73,9 @@ export function exportClassExcel(opts: {
     });
 
   const meta = [
-    [`Class: ${className}`, `Term: ${term}`, `Generated: ${new Date().toLocaleString()}`],
+    [config.school.name],
+    [config.school.address],
+    [`Class: ${className}`, `Term: ${term}`, `Academic Year: ${config.school.academicYear}`, `Generated: ${new Date().toLocaleString()}`],
     [],
   ];
   const ws = XLSX.utils.aoa_to_sheet([...meta, header, ...rows]);
@@ -75,36 +84,304 @@ export function exportClassExcel(opts: {
   XLSX.writeFile(wb, `${className.replace(/\s+/g, "_")}_${term.replace(/\s+/g, "_")}_results.xlsx`);
 }
 
-export async function exportClassPdfFromCardElement(opts: {
-  cardEl: HTMLElement;
-  fileName: string;
-  iterate: (renderStudent: (grNo: string) => Promise<void>) => Promise<string[]>;
+async function fetchImageDataUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+interface PdfStudent extends StudentForExport {}
+
+export async function exportClassPdf(opts: {
+  className: string;
+  term: string;
+  students: PdfStudent[];
+  marks: MarkForExport[]; // for "standard": current term; for "multi_term": all terms
+  config: PortalConfig;
 }) {
-  const { cardEl, fileName, iterate } = opts;
-  const pdf = new jsPDF("p", "mm", "a4");
+  const { className, term, students, marks, config } = opts;
+  const subjects = getSubjectsForClass(className);
+  const regulars = subjects.filter((s) => s.type === "regular");
+  const credits = subjects.filter((s) => s.type === "credit");
+  const extras = enabledExtraFields(config);
+  const { orientation, template } = config.report;
+
+  const pdf = new jsPDF(orientation === "landscape" ? "l" : "p", "mm", "a4");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  let first = true;
 
-  await iterate(async (_grNo) => {
-    const canvas = await html2canvas(cardEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-    const img = canvas.toDataURL("image/jpeg", 0.92);
-    const imgW = pageW - 10;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    if (!first) pdf.addPage();
-    first = false;
-    let y = 5;
-    let remaining = imgH;
-    if (imgH <= pageH - 10) {
-      pdf.addImage(img, "JPEG", 5, y, imgW, imgH);
-    } else {
-      // single page scaled down
-      const scaledH = pageH - 10;
-      const scaledW = (canvas.width * scaledH) / canvas.height;
-      pdf.addImage(img, "JPEG", (pageW - scaledW) / 2, 5, scaledW, scaledH);
+  const logoData = await fetchImageDataUrl(config.school.logoUrl);
+  const sigData = await fetchImageDataUrl(config.school.signatureUrl);
+
+  const sorted = students.slice().sort((a, b) =>
+    (a.roll_no || a.gr_no || "").localeCompare(b.roll_no || b.gr_no || "", undefined, { numeric: true }),
+  );
+
+  const drawHeader = (yStart = 10): number => {
+    let y = yStart;
+    if (logoData) {
+      try { pdf.addImage(logoData, "PNG", 12, y, 16, 16); } catch { /* ignore */ }
     }
-    void remaining;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(15);
+    pdf.text(config.school.name, pageW / 2, y + 6, { align: "center" });
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "italic");
+    if (config.school.tagline) pdf.text(config.school.tagline, pageW / 2, y + 11, { align: "center" });
+    pdf.setFont("helvetica", "normal");
+    if (config.school.address) pdf.text(config.school.address, pageW / 2, y + 15, { align: "center" });
+    pdf.setDrawColor(120);
+    pdf.line(10, y + 19, pageW - 10, y + 19);
+    return y + 23;
+  };
+
+  const drawFooterSignatures = (y: number) => {
+    const cellW = (pageW - 30) / 3;
+    pdf.setDrawColor(0);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    [0, 1, 2].forEach((i) => {
+      const x = 15 + i * cellW;
+      pdf.line(x, y, x + cellW - 5, y);
+    });
+    pdf.text("Class Teacher", 15 + cellW * 0.3, y + 5);
+    pdf.text("Parent / Guardian", 15 + cellW + cellW * 0.2, y + 5);
+    pdf.text(config.school.principalName || "Principal", 15 + 2 * cellW + cellW * 0.2, y + 5);
+    if (sigData) {
+      try { pdf.addImage(sigData, "PNG", 15 + 2 * cellW + 5, y - 14, 30, 12); } catch { /* ignore */ }
+    }
+  };
+
+  const drawStudentMeta = (s: PdfStudent, y: number): number => {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text(`${s.name}`, 12, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`GR: ${s.gr_no}`, pageW - 60, y);
+    pdf.text(`Roll: ${s.roll_no || "—"}`, pageW - 30, y);
+    let yy = y + 5;
+    pdf.text(`Class: ${className}    Term: ${term}    Year: ${config.school.academicYear}`, 12, yy);
+    yy += 4;
+    const extraLine = extras
+      .map((e) => `${e.label}: ${s.extra?.[e.key] || "—"}`)
+      .join("    ");
+    if (extraLine) {
+      pdf.setFontSize(8);
+      pdf.text(extraLine, 12, yy, { maxWidth: pageW - 24 });
+      yy += 4;
+    }
+    return yy + 2;
+  };
+
+  // Template renderers ──────────────────────────────────────
+  const renderStandard = (s: PdfStudent) => {
+    const byKey: Record<string, MarkRow> = {};
+    for (const m of marks.filter((m) => m.gr_no === s.gr_no)) byKey[m.subject] = m;
+    const summary = calcResult(subjects, byKey);
+
+    let y = drawHeader();
+    y = drawStudentMeta(s, y);
+
+    // Scholastic table
+    pdf.setFont("helvetica", "bold");
+    pdf.setFillColor(225, 230, 245);
+    pdf.rect(12, y, pageW - 24, 6, "F");
+    pdf.setFontSize(9);
+    pdf.text("Subject", 14, y + 4);
+    pdf.text("Marks", pageW - 50, y + 4);
+    pdf.text("Out Of", pageW - 25, y + 4);
+    y += 8;
+    pdf.setFont("helvetica", "normal");
+    regulars.forEach((sub) => {
+      pdf.text(sub.name, 14, y);
+      pdf.text(String(byKey[sub.name]?.marks ?? "—"), pageW - 50, y);
+      pdf.text("100", pageW - 25, y);
+      y += 5;
+    });
+
+    if (credits.length) {
+      y += 3;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFillColor(225, 245, 225);
+      pdf.rect(12, y, pageW - 24, 6, "F");
+      pdf.text("Co-Scholastic", 14, y + 4);
+      pdf.text("Grade", pageW - 25, y + 4);
+      y += 8;
+      pdf.setFont("helvetica", "normal");
+      credits.forEach((sub) => {
+        pdf.text(sub.name, 14, y);
+        pdf.text(byKey[sub.name]?.grade || "—", pageW - 25, y);
+        y += 5;
+      });
+    }
+
+    y += 4;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text(`Total: ${summary.total}/${summary.outOf}`, 14, y);
+    pdf.text(`Percentage: ${summary.percentage}%`, pageW / 2 - 15, y);
+    pdf.text(`Grade: ${summary.grade}`, pageW - 50, y);
+    y += 6;
+    pdf.setTextColor(summary.passed ? 0 : 200, summary.passed ? 130 : 0, 0);
+    pdf.text(`Result: ${summary.passed ? "PASS" : "FAIL"}`, 14, y);
+    pdf.setTextColor(0, 0, 0);
+
+    drawFooterSignatures(pageH - 18);
+  };
+
+  const renderMultiTerm = (s: PdfStudent) => {
+    const studentMarks = marks.filter((m) => m.gr_no === s.gr_no);
+    const byTerm: Record<string, Record<string, MarkRow>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };
+    for (const m of studentMarks) {
+      const t = m.term || term;
+      if (!byTerm[t]) byTerm[t] = {};
+      byTerm[t][m.subject] = m;
+    }
+
+    let y = drawHeader();
+    y = drawStudentMeta(s, y);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setFillColor(225, 230, 245);
+    pdf.rect(12, y, pageW - 24, 6, "F");
+    pdf.text("Subject", 14, y + 4);
+    const colX = [pageW - 95, pageW - 70, pageW - 45, pageW - 20];
+    ["Term 1", "Term 2", "Term 3", "Total"].forEach((h, i) => pdf.text(h, colX[i], y + 4));
+    y += 8;
+    pdf.setFont("helvetica", "normal");
+
+    let grand = 0;
+    let outOfAll = 0;
+    regulars.forEach((sub) => {
+      const t1 = Number(byTerm["Term 1"]?.[sub.name]?.marks) || 0;
+      const t2 = Number(byTerm["Term 2"]?.[sub.name]?.marks) || 0;
+      const t3 = Number(byTerm["Term 3"]?.[sub.name]?.marks) || 0;
+      const total = t1 + t2 + t3;
+      grand += total;
+      outOfAll += 300;
+      pdf.text(sub.name, 14, y);
+      [t1, t2, t3, total].forEach((v, i) => pdf.text(String(v || "—"), colX[i], y));
+      y += 5;
+    });
+
+    y += 3;
+    const pct = outOfAll ? (grand / outOfAll) * 100 : 0;
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Grand Total: ${grand}/${outOfAll}    Annual %: ${pct.toFixed(1)}%`, 14, y);
+    drawFooterSignatures(pageH - 18);
+  };
+
+  const renderTriFold = (s: PdfStudent) => {
+    // Landscape recommended; we still divide page into 3 vertical panels.
+    const byKey: Record<string, MarkRow> = {};
+    for (const m of marks.filter((m) => m.gr_no === s.gr_no)) byKey[m.subject] = m;
+    const summary = calcResult(subjects, byKey);
+    const panelW = pageW / 3;
+
+    // Fold guidelines
+    pdf.setDrawColor(180);
+    pdf.setLineDashPattern([2, 2], 0);
+    pdf.line(panelW, 5, panelW, pageH - 5);
+    pdf.line(panelW * 2, 5, panelW * 2, pageH - 5);
+    pdf.setLineDashPattern([], 0);
+    pdf.setDrawColor(0);
+
+    // Panel 1 — Cover
+    if (logoData) { try { pdf.addImage(logoData, "PNG", panelW / 2 - 12, 25, 24, 24); } catch { /* */ } }
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.text(config.school.name, panelW / 2, 60, { align: "center", maxWidth: panelW - 10 });
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "italic");
+    pdf.text(config.school.tagline, panelW / 2, 68, { align: "center", maxWidth: panelW - 10 });
+    pdf.setFont("helvetica", "normal");
+    pdf.text(config.school.address, panelW / 2, 74, { align: "center", maxWidth: panelW - 10 });
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("PROGRESS REPORT", panelW / 2, 100, { align: "center" });
+    pdf.setFontSize(10);
+    pdf.text(`Academic Year ${config.school.academicYear}`, panelW / 2, 108, { align: "center" });
+    pdf.setFontSize(11);
+    pdf.text(s.name, panelW / 2, 130, { align: "center" });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`GR: ${s.gr_no}   Roll: ${s.roll_no || "—"}`, panelW / 2, 137, { align: "center" });
+    pdf.text(`${className} · ${term}`, panelW / 2, 143, { align: "center" });
+
+    // Panel 2 — Scholastic
+    let y = 15;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("SCHOLASTIC", panelW + panelW / 2, y, { align: "center" });
+    y += 6;
+    pdf.setFontSize(8);
+    pdf.setFillColor(225, 230, 245);
+    pdf.rect(panelW + 5, y, panelW - 10, 5, "F");
+    pdf.text("Subject", panelW + 7, y + 3.5);
+    pdf.text("Marks", panelW + panelW - 25, y + 3.5);
+    y += 7;
+    pdf.setFont("helvetica", "normal");
+    regulars.forEach((sub) => {
+      pdf.text(sub.name, panelW + 7, y, { maxWidth: panelW - 30 });
+      pdf.text(String(byKey[sub.name]?.marks ?? "—"), panelW + panelW - 25, y);
+      y += 5;
+    });
+    y += 3;
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Total: ${summary.total}/${summary.outOf}`, panelW + 7, y); y += 5;
+    pdf.text(`Percentage: ${summary.percentage}%`, panelW + 7, y); y += 5;
+    pdf.text(`Grade: ${summary.grade}`, panelW + 7, y); y += 5;
+    pdf.setTextColor(summary.passed ? 0 : 200, summary.passed ? 130 : 0, 0);
+    pdf.text(`Result: ${summary.passed ? "PASS" : "FAIL"}`, panelW + 7, y);
+    pdf.setTextColor(0, 0, 0);
+
+    // Panel 3 — Co-Scholastic + Signatures
+    let y3 = 15;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.text("CO-SCHOLASTIC", 2 * panelW + panelW / 2, y3, { align: "center" });
+    y3 += 6;
+    pdf.setFontSize(8);
+    pdf.setFillColor(225, 245, 225);
+    pdf.rect(2 * panelW + 5, y3, panelW - 10, 5, "F");
+    pdf.text("Subject", 2 * panelW + 7, y3 + 3.5);
+    pdf.text("Grade", 2 * panelW + panelW - 20, y3 + 3.5);
+    y3 += 7;
+    pdf.setFont("helvetica", "normal");
+    credits.forEach((sub) => {
+      pdf.text(sub.name, 2 * panelW + 7, y3, { maxWidth: panelW - 30 });
+      pdf.text(byKey[sub.name]?.grade || "—", 2 * panelW + panelW - 20, y3);
+      y3 += 5;
+    });
+    // Signatures bottom
+    const sy = pageH - 30;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.line(2 * panelW + 8, sy, 2 * panelW + panelW - 8, sy);
+    if (sigData) { try { pdf.addImage(sigData, "PNG", 2 * panelW + panelW / 2 - 15, sy - 12, 30, 10); } catch { /* */ } }
+    pdf.text(config.school.principalName || "Principal", 2 * panelW + panelW / 2, sy + 5, { align: "center" });
+  };
+
+  const render = template === "multi_term" ? renderMultiTerm
+              : template === "tri_fold"   ? renderTriFold
+              : renderStandard;
+
+  sorted.forEach((stu, idx) => {
+    if (idx > 0) pdf.addPage();
+    render(stu);
   });
 
-  pdf.save(fileName);
+  pdf.save(`${className.replace(/\s+/g, "_")}_${term.replace(/\s+/g, "_")}_${template}.pdf`);
 }
