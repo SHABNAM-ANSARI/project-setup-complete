@@ -4,6 +4,7 @@ import { Trash2, Edit3, Search, RefreshCw, Save, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getSubjectsForClass } from "@/data/subjectMapping";
 import { calcResult, type MarkRow } from "@/lib/grades";
+import { usePortalConfig, enabledExtraFields } from "@/lib/portalConfig";
 
 interface StudentRow {
   id: string;
@@ -13,6 +14,7 @@ interface StudentRow {
   roll_no: string | null;
   division: string | null;
   gender: string | null;
+  extra: Record<string, string> | null;
 }
 
 interface MarkRecord {
@@ -34,6 +36,8 @@ interface Props {
 type TabKey = "students" | "marks";
 
 export function RecordsTable({ className, term }: Props) {
+  const { config } = usePortalConfig();
+  const extraCols = enabledExtraFields(config);
   const [tab, setTab] = useState<TabKey>("students");
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [marks, setMarks] = useState<MarkRecord[]>([]);
@@ -47,7 +51,7 @@ export function RecordsTable({ className, term }: Props) {
     const [s, m] = await Promise.all([
       supabase
         .from("students")
-        .select("id,gr_no,name,class_name,roll_no,division,gender")
+        .select("id,gr_no,name,class_name,roll_no,division,gender,extra")
         .eq("class_name", className)
         .order("roll_no", { ascending: true }),
       supabase
@@ -105,7 +109,8 @@ export function RecordsTable({ className, term }: Props) {
 
   const startEdit = (id: string, current: Record<string, any>) => {
     setEditId(id);
-    setDraft({ ...current });
+    const extra = (current.extra && typeof current.extra === "object") ? current.extra : {};
+    setDraft({ ...current, ...Object.fromEntries(extraCols.map((c) => [`extra_${c.key}`, extra[c.key] || ""])) });
   };
 
   const cancelEdit = () => {
@@ -115,6 +120,11 @@ export function RecordsTable({ className, term }: Props) {
 
   const saveStudent = async () => {
     const id = editId!;
+    const extra: Record<string, string> = {};
+    for (const c of extraCols) {
+      const v = String(draft[`extra_${c.key}`] || "").trim();
+      if (v) extra[c.key] = v;
+    }
     const { error } = await supabase
       .from("students")
       .update({
@@ -122,6 +132,7 @@ export function RecordsTable({ className, term }: Props) {
         roll_no: (draft.roll_no as string) || null,
         division: (draft.division as string) || null,
         gender: (draft.gender as string) || null,
+        extra,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
@@ -213,6 +224,9 @@ export function RecordsTable({ className, term }: Props) {
                 <th className="text-left px-3 py-2">Name</th>
                 <th className="text-left px-3 py-2">Div</th>
                 <th className="text-left px-3 py-2">Gender</th>
+                {extraCols.map((c) => (
+                  <th key={c.key} className="text-left px-3 py-2">{c.label}</th>
+                ))}
                 <th className="text-right px-3 py-2">Total</th>
                 <th className="text-right px-3 py-2">%</th>
                 <th className="text-center px-3 py-2">Grade</th>
@@ -266,6 +280,17 @@ export function RecordsTable({ className, term }: Props) {
                         </select>
                       ) : (s.gender || "")}
                     </td>
+                    {extraCols.map((c) => (
+                      <td key={c.key} className="px-3 py-2">
+                        {isEdit ? (
+                          <input
+                            className="input-field py-1"
+                            value={String(draft[`extra_${c.key}`] || "")}
+                            onChange={(e) => setDraft({ ...draft, [`extra_${c.key}`]: e.target.value })}
+                          />
+                        ) : (s.extra?.[c.key] || "")}
+                      </td>
+                    ))}
                     <td className="px-3 py-2 text-right">{sum?.total ?? 0}/{sum?.outOf ?? 0}</td>
                     <td className="px-3 py-2 text-right">{sum?.percentage ?? 0}%</td>
                     <td className="px-3 py-2 text-center font-bold">{sum?.grade ?? "—"}</td>
@@ -286,7 +311,7 @@ export function RecordsTable({ className, term }: Props) {
                 );
               })}
               {!filteredStudents.length && (
-                <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No students.</td></tr>
+                <tr><td colSpan={9 + extraCols.length} className="text-center text-muted-foreground py-8">No students.</td></tr>
               )}
             </tbody>
           </table>

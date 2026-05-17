@@ -7,7 +7,7 @@ import {
   endSuperAdminSession,
 } from "@/lib/superAdminAuth";
 import { SuperAdminLogin } from "@/components/super-admin/SuperAdminLogin";
-import { SuperAdminSettings } from "@/components/super-admin/SuperAdminSettings";
+import { PortalConfigSettings } from "@/components/super-admin/PortalConfigSettings";
 import { RecordsTable } from "@/components/super-admin/RecordsTable";
 import { BulkMarksUpload } from "@/components/super-admin/BulkMarksUpload";
 import { BulkExport } from "@/components/super-admin/BulkExport";
@@ -43,7 +43,7 @@ function SuperAdminPage() {
     { key: "records", label: "Records", icon: Database },
     { key: "upload", label: "Bulk Upload", icon: Upload },
     { key: "export", label: "Bulk Export", icon: Download },
-    { key: "settings", label: "Settings", icon: Settings },
+    { key: "settings", label: "Configuration", icon: Settings },
   ];
 
   return (
@@ -122,7 +122,7 @@ function SuperAdminPage() {
           />
         )}
         {tab === "export" && <BulkExport className={className} term={term} />}
-        {tab === "settings" && <SuperAdminSettings />}
+        {tab === "settings" && <PortalConfigSettings />}
       </div>
     </div>
   );

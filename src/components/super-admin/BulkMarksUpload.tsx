@@ -1,83 +1,144 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Upload, FileDown, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { Upload, FileDown, FileSpreadsheet, AlertTriangle, Users, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { parseMarksFile, downloadTemplate, type ParsedMarkRow } from "@/lib/marksParser";
+import {
+  parseMarksFile,
+  parseStudentsFile,
+  downloadTemplate,
+  downloadStudentsTemplate,
+  type ParsedMarkRow,
+  type ParsedStudentRow,
+} from "@/lib/marksParser";
+import { usePortalConfig, enabledExtraFields } from "@/lib/portalConfig";
 
 interface Props {
   defaultClass: string;
   onImported?: () => void;
 }
 
+type Mode = "marks" | "students";
+
 export function BulkMarksUpload({ defaultClass, onImported }: Props) {
-  const [rows, setRows] = useState<ParsedMarkRow[]>([]);
+  const { config } = usePortalConfig();
+  const [mode, setMode] = useState<Mode>("marks");
+  const [markRows, setMarkRows] = useState<ParsedMarkRow[]>([]);
+  const [studentRows, setStudentRows] = useState<ParsedStudentRow[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setMarkRows([]);
+    setStudentRows([]);
+    setFile(null);
+  };
 
   const onFile = async (f: File) => {
     setFile(f);
     try {
-      const parsed = await parseMarksFile(f, defaultClass);
-      setRows(parsed);
-      toast.success(`Parsed ${parsed.length} rows from ${f.name}`);
+      if (mode === "marks") {
+        const parsed = await parseMarksFile(f, defaultClass);
+        setMarkRows(parsed);
+        setStudentRows([]);
+        toast.success(`Parsed ${parsed.length} mark rows from ${f.name}`);
+      } else {
+        const parsed = await parseStudentsFile(f, defaultClass, config);
+        setStudentRows(parsed);
+        setMarkRows([]);
+        toast.success(`Parsed ${parsed.length} student rows from ${f.name}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to read file");
     }
   };
 
+  const rows = mode === "marks" ? markRows : studentRows;
   const validRows = rows.filter((r) => !r._error);
   const errorRows = rows.filter((r) => r._error);
 
   const importNow = async () => {
-    if (!validRows.length) {
-      toast.error("Nothing to import");
-      return;
-    }
+    if (!validRows.length) return toast.error("Nothing to import");
     setBusy(true);
-    const payload = validRows.map((r) => ({
-      gr_no: r.gr_no,
-      student_name: r.student_name,
-      class_name: r.class_name,
-      term: r.term,
-      subject: r.subject,
-      marks: r.marks,
-      grade: r.grade,
-      updated_at: new Date().toISOString(),
-    }));
-    // Upsert in batches of 200 to stay under request limits.
-    let inserted = 0;
-    for (let i = 0; i < payload.length; i += 200) {
-      const batch = payload.slice(i, i + 200);
-      const { error } = await supabase.from("marks").upsert(batch);
-      if (error) {
-        setBusy(false);
-        toast.error(`Failed at batch ${i}: ${error.message}`);
-        return;
+    try {
+      if (mode === "marks") {
+        const payload = (validRows as ParsedMarkRow[]).map((r) => ({
+          gr_no: r.gr_no,
+          student_name: r.student_name,
+          class_name: r.class_name,
+          term: r.term,
+          subject: r.subject,
+          marks: r.marks,
+          grade: r.grade,
+          updated_at: new Date().toISOString(),
+        }));
+        for (let i = 0; i < payload.length; i += 200) {
+          const { error } = await supabase.from("marks").upsert(payload.slice(i, i + 200));
+          if (error) throw error;
+        }
+        toast.success(`Imported ${payload.length} marks`);
+      } else {
+        const payload = (validRows as ParsedStudentRow[]).map((r) => ({
+          gr_no: r.gr_no,
+          name: r.name,
+          class_name: r.class_name,
+          roll_no: r.roll_no,
+          division: r.division,
+          gender: r.gender,
+          extra: r.extra,
+          updated_at: new Date().toISOString(),
+        }));
+        for (let i = 0; i < payload.length; i += 200) {
+          const { error } = await supabase
+            .from("students")
+            .upsert(payload.slice(i, i + 200), { onConflict: "gr_no" });
+          if (error) throw error;
+        }
+        toast.success(`Imported ${payload.length} students`);
       }
-      inserted += batch.length;
+      reset();
+      onImported?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    toast.success(`Imported ${inserted} marks`);
-    setRows([]);
-    setFile(null);
-    onImported?.();
   };
+
+  const extraCols = enabledExtraFields(config);
 
   return (
     <div className="space-y-4">
       <div className="bg-card border-2 border-border rounded-lg p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Bulk Marks Upload</h2>
+            <h2 className="text-xl font-bold text-foreground">Bulk Upload</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Upload a CSV or Excel file. Required columns: <code className="font-mono">gr_no, student_name, subject, term, marks</code> (or <code className="font-mono">grade</code> for credit subjects).
+              {mode === "marks"
+                ? <>Required columns: <code className="font-mono">gr_no, student_name, subject, term, marks</code> (or <code className="font-mono">grade</code> for credit subjects).</>
+                : <>Required: <code className="font-mono">gr_no, name</code>. Optional dynamic fields are controlled in Configuration: {extraCols.length ? extraCols.map(f => <code key={f.key} className="font-mono mx-1">{f.key}</code>) : <em>none enabled</em>}.</>
+              }
             </p>
           </div>
           <button
-            onClick={downloadTemplate}
+            onClick={() => (mode === "marks" ? downloadTemplate() : downloadStudentsTemplate(config))}
             className="text-sm font-bold text-primary hover:underline flex items-center gap-1 whitespace-nowrap"
           >
             <FileDown className="w-4 h-4" /> Template
+          </button>
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => { setMode("marks"); reset(); }}
+            className={`px-3 py-1.5 rounded-md text-sm font-bold inline-flex items-center gap-1 ${mode === "marks" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+          >
+            <BookOpen className="w-4 h-4" /> Marks
+          </button>
+          <button
+            onClick={() => { setMode("students"); reset(); }}
+            className={`px-3 py-1.5 rounded-md text-sm font-bold inline-flex items-center gap-1 ${mode === "students" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+          >
+            <Users className="w-4 h-4" /> Students
           </button>
         </div>
 
@@ -129,36 +190,73 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
           )}
 
           <div className="overflow-x-auto max-h-80">
-            <table className="w-full text-xs">
-              <thead className="bg-muted sticky top-0">
-                <tr>
-                  <th className="text-left px-2 py-1">Row</th>
-                  <th className="text-left px-2 py-1">GR No</th>
-                  <th className="text-left px-2 py-1">Name</th>
-                  <th className="text-left px-2 py-1">Class</th>
-                  <th className="text-left px-2 py-1">Term</th>
-                  <th className="text-left px-2 py-1">Subject</th>
-                  <th className="text-right px-2 py-1">Marks</th>
-                  <th className="text-center px-2 py-1">Grade</th>
-                  <th className="text-left px-2 py-1">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 200).map((r) => (
-                  <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/5" : ""}`}>
-                    <td className="px-2 py-1 font-mono">{r._row}</td>
-                    <td className="px-2 py-1">{r.gr_no}</td>
-                    <td className="px-2 py-1">{r.student_name}</td>
-                    <td className="px-2 py-1">{r.class_name}</td>
-                    <td className="px-2 py-1">{r.term}</td>
-                    <td className="px-2 py-1">{r.subject}</td>
-                    <td className="px-2 py-1 text-right">{r.marks ?? ""}</td>
-                    <td className="px-2 py-1 text-center">{r.grade ?? ""}</td>
-                    <td className="px-2 py-1">{r._error ? <span className="text-destructive">{r._error}</span> : <span className="text-accent">OK</span>}</td>
+            {mode === "marks" ? (
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="text-left px-2 py-1">Row</th>
+                    <th className="text-left px-2 py-1">GR No</th>
+                    <th className="text-left px-2 py-1">Name</th>
+                    <th className="text-left px-2 py-1">Class</th>
+                    <th className="text-left px-2 py-1">Term</th>
+                    <th className="text-left px-2 py-1">Subject</th>
+                    <th className="text-right px-2 py-1">Marks</th>
+                    <th className="text-center px-2 py-1">Grade</th>
+                    <th className="text-left px-2 py-1">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {markRows.slice(0, 200).map((r) => (
+                    <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/5" : ""}`}>
+                      <td className="px-2 py-1 font-mono">{r._row}</td>
+                      <td className="px-2 py-1">{r.gr_no}</td>
+                      <td className="px-2 py-1">{r.student_name}</td>
+                      <td className="px-2 py-1">{r.class_name}</td>
+                      <td className="px-2 py-1">{r.term}</td>
+                      <td className="px-2 py-1">{r.subject}</td>
+                      <td className="px-2 py-1 text-right">{r.marks ?? ""}</td>
+                      <td className="px-2 py-1 text-center">{r.grade ?? ""}</td>
+                      <td className="px-2 py-1">{r._error ? <span className="text-destructive">{r._error}</span> : <span className="text-accent">OK</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="text-left px-2 py-1">Row</th>
+                    <th className="text-left px-2 py-1">GR</th>
+                    <th className="text-left px-2 py-1">Name</th>
+                    <th className="text-left px-2 py-1">Class</th>
+                    <th className="text-left px-2 py-1">Roll</th>
+                    <th className="text-left px-2 py-1">Div</th>
+                    <th className="text-left px-2 py-1">Gender</th>
+                    {extraCols.map((c) => (
+                      <th key={c.key} className="text-left px-2 py-1">{c.label}</th>
+                    ))}
+                    <th className="text-left px-2 py-1">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentRows.slice(0, 200).map((r) => (
+                    <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/5" : ""}`}>
+                      <td className="px-2 py-1 font-mono">{r._row}</td>
+                      <td className="px-2 py-1">{r.gr_no}</td>
+                      <td className="px-2 py-1">{r.name}</td>
+                      <td className="px-2 py-1">{r.class_name}</td>
+                      <td className="px-2 py-1">{r.roll_no || ""}</td>
+                      <td className="px-2 py-1">{r.division || ""}</td>
+                      <td className="px-2 py-1">{r.gender || ""}</td>
+                      {extraCols.map((c) => (
+                        <td key={c.key} className="px-2 py-1">{r.extra[c.key] || ""}</td>
+                      ))}
+                      <td className="px-2 py-1">{r._error ? <span className="text-destructive">{r._error}</span> : <span className="text-accent">OK</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
             {rows.length > 200 && (
               <p className="text-xs text-muted-foreground p-2">Showing first 200 of {rows.length} rows.</p>
             )}
