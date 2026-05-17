@@ -311,7 +311,7 @@ export function RecordsTable({ className, term }: Props) {
                 );
               })}
               {!filteredStudents.length && (
-                <tr><td colSpan={9} className="text-center text-muted-foreground py-8">No students.</td></tr>
+                <tr><td colSpan={9 + extraCols.length} className="text-center text-muted-foreground py-8">No students.</td></tr>
               )}
             </tbody>
           </table>
