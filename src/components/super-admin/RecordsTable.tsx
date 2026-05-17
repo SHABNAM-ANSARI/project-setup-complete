@@ -109,7 +109,8 @@ export function RecordsTable({ className, term }: Props) {
 
   const startEdit = (id: string, current: Record<string, any>) => {
     setEditId(id);
-    setDraft({ ...current });
+    const extra = (current.extra && typeof current.extra === "object") ? current.extra : {};
+    setDraft({ ...current, ...Object.fromEntries(extraCols.map((c) => [`extra_${c.key}`, extra[c.key] || ""])) });
   };
 
   const cancelEdit = () => {
@@ -119,6 +120,11 @@ export function RecordsTable({ className, term }: Props) {
 
   const saveStudent = async () => {
     const id = editId!;
+    const extra: Record<string, string> = {};
+    for (const c of extraCols) {
+      const v = String(draft[`extra_${c.key}`] || "").trim();
+      if (v) extra[c.key] = v;
+    }
     const { error } = await supabase
       .from("students")
       .update({
@@ -126,6 +132,7 @@ export function RecordsTable({ className, term }: Props) {
         roll_no: (draft.roll_no as string) || null,
         division: (draft.division as string) || null,
         gender: (draft.gender as string) || null,
+        extra,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
