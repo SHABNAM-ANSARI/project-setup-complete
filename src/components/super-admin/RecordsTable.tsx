@@ -280,6 +280,17 @@ export function RecordsTable({ className, term }: Props) {
                         </select>
                       ) : (s.gender || "")}
                     </td>
+                    {extraCols.map((c) => (
+                      <td key={c.key} className="px-3 py-2">
+                        {isEdit ? (
+                          <input
+                            className="input-field py-1"
+                            value={String(draft[`extra_${c.key}`] || "")}
+                            onChange={(e) => setDraft({ ...draft, [`extra_${c.key}`]: e.target.value })}
+                          />
+                        ) : (s.extra?.[c.key] || "")}
+                      </td>
+                    ))}
                     <td className="px-3 py-2 text-right">{sum?.total ?? 0}/{sum?.outOf ?? 0}</td>
                     <td className="px-3 py-2 text-right">{sum?.percentage ?? 0}%</td>
                     <td className="px-3 py-2 text-center font-bold">{sum?.grade ?? "—"}</td>
