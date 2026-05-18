@@ -32,10 +32,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState<ParsedStudentRow[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [editId, setEditId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Partial<StudentRow>>({});
+
 
   const load = async () => {
     if (!className) return;
