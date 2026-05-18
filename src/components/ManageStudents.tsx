@@ -121,6 +121,44 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     load();
   };
 
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = await parseStudentsFile(file, className, config);
+      if (!rows.length) return toast.error("File is empty");
+      setPreview(rows);
+    } catch (err) {
+      toast.error(`Parse failed: ${(err as Error).message}`);
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!preview) return;
+    const valid = preview.filter((r) => !r._error);
+    if (!valid.length) return toast.error("No valid rows to import");
+    setImporting(true);
+    const payload = valid.map((r) => ({
+      gr_no: r.gr_no,
+      name: r.name,
+      class_name: r.class_name,
+      roll_no: r.roll_no,
+      division: r.division,
+      gender: r.gender,
+      extra: r.extra && Object.keys(r.extra).length ? r.extra : null,
+    }));
+    const { error } = await supabase
+      .from("students")
+      .upsert(payload, { onConflict: "gr_no,class_name" });
+    setImporting(false);
+    if (error) return toast.error(`Import failed: ${error.message}`);
+    toast.success(`Imported ${payload.length} students`);
+    setPreview(null);
+    load();
+  };
+
   return (
     <div className="bg-card p-6 rounded-xl shadow-md border border-primary/10">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
