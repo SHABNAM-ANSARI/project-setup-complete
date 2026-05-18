@@ -147,7 +147,10 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
       roll_no: r.roll_no,
       division: r.division,
       gender: r.gender,
-      extra: r.extra && Object.keys(r.extra).length ? r.extra : null,
+      parent_name: r.extra?.parent_name ?? null,
+      address: r.extra?.address ?? null,
+      dob: r.extra?.dob ?? null,
+      contact: r.extra?.phone ?? null,
     }));
     const { error } = await supabase
       .from("students")
