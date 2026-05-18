@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Edit3, Save, X, Search, RefreshCw, Trash2 } from "lucide-react";
+import { Edit3, Save, X, Search, RefreshCw, Trash2, Upload, FileDown } from "lucide-react";
+import { parseStudentsFile, downloadStudentsTemplate, type ParsedStudentRow } from "@/lib/marksParser";
+import { usePortalConfig } from "@/lib/portalConfig";
 import { supabase } from "@/lib/supabase";
 import { CLASS_OPTIONS } from "@/data/schoolData";
 
