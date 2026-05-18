@@ -13,7 +13,7 @@ interface DashboardProps {
   onChangePassword?: () => void;
 }
 
-type Mode = "home" | "enter" | "print" | "admin";
+type Mode = "home" | "enter" | "print" | "admin" | "manage";
 
 const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword }: DashboardProps) => {
   const [mode, setMode] = useState<Mode>("home");
