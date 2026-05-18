@@ -90,6 +90,17 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
                 </div>
               </button>
 
+              <button
+                onClick={() => setMode("manage")}
+                className="group p-8 rounded-xl border-2 border-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all shadow-md hover:shadow-xl"
+              >
+                <div className="text-5xl mb-3">👥</div>
+                <div className="font-black text-xl mb-1">Manage Students</div>
+                <div className="text-xs opacity-80 group-hover:opacity-100">
+                  Fix name spellings, roll numbers & GR numbers. Changes sync to the marksheet instantly.
+                </div>
+              </button>
+
               {isAdmin && (
                 <button
                   onClick={() => setMode("admin")}
