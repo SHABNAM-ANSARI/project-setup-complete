@@ -67,7 +67,7 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
             <h2 className="text-2xl font-black text-primary mb-2 text-center">Welcome to Dunne's Portal</h2>
             <p className="text-center text-muted-foreground mb-8 text-sm">Choose what you'd like to do</p>
 
-            <div className={`grid grid-cols-1 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6 max-w-4xl mx-auto`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <button
                 onClick={() => setMode("enter")}
                 className="group p-8 rounded-xl border-2 border-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all shadow-md hover:shadow-xl"
