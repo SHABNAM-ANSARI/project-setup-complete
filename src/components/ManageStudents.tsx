@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Edit3, Save, X, Search, RefreshCw, Trash2 } from "lucide-react";
+import { Edit3, Save, X, Search, RefreshCw, Trash2, Upload, FileDown } from "lucide-react";
+import { parseStudentsFile, downloadStudentsTemplate, type ParsedStudentRow } from "@/lib/marksParser";
+import { usePortalConfig } from "@/lib/portalConfig";
 import { supabase } from "@/lib/supabase";
 import { CLASS_OPTIONS } from "@/data/schoolData";
 
@@ -20,12 +22,17 @@ interface Props {
 }
 
 export default function ManageStudents({ isAdmin, defaultClass }: Props) {
+  const { config } = usePortalConfig();
   const [className, setClassName] = useState<string>(defaultClass || CLASS_OPTIONS[0] || "");
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<StudentRow>>({});
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState<ParsedStudentRow[] | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
 
   const load = async () => {
     if (!className) return;
@@ -114,6 +121,47 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     load();
   };
 
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = await parseStudentsFile(file, className, config);
+      if (!rows.length) return toast.error("File is empty");
+      setPreview(rows);
+    } catch (err) {
+      toast.error(`Parse failed: ${(err as Error).message}`);
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!preview) return;
+    const valid = preview.filter((r) => !r._error);
+    if (!valid.length) return toast.error("No valid rows to import");
+    setImporting(true);
+    const payload = valid.map((r) => ({
+      gr_no: r.gr_no,
+      name: r.name,
+      class_name: r.class_name,
+      roll_no: r.roll_no,
+      division: r.division,
+      gender: r.gender,
+      parent_name: r.extra?.parent_name ?? null,
+      address: r.extra?.address ?? null,
+      dob: r.extra?.dob ?? null,
+      contact: r.extra?.phone ?? null,
+    }));
+    const { error } = await supabase
+      .from("students")
+      .upsert(payload, { onConflict: "gr_no,class_name" });
+    setImporting(false);
+    if (error) return toast.error(`Import failed: ${error.message}`);
+    toast.success(`Imported ${payload.length} students`);
+    setPreview(null);
+    load();
+  };
+
   return (
     <div className="bg-card p-6 rounded-xl shadow-md border border-primary/10">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -144,8 +192,86 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
+          <button
+            onClick={() => downloadStudentsTemplate(config)}
+            className="px-3 py-2 rounded-md border-2 border-primary/30 text-sm font-bold flex items-center gap-1 hover:bg-primary/5 text-primary"
+          >
+            <FileDown className="w-4 h-4" /> Template
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-bold flex items-center gap-1 hover:opacity-90"
+          >
+            <Upload className="w-4 h-4" /> Import CSV/Excel
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={handleFile}
+          />
         </div>
       </div>
+
+      {preview && (
+        <div className="mb-4 border-2 border-primary/30 rounded-lg p-4 bg-primary/5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-bold text-primary">
+              Preview: {preview.length} rows
+              {preview.some((r) => r._error) && (
+                <span className="ml-2 text-destructive text-sm">
+                  ({preview.filter((r) => r._error).length} with errors will be skipped)
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPreview(null)}
+                className="px-3 py-1.5 text-sm rounded border-2 border-muted-foreground/30 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImport}
+                disabled={importing}
+                className="px-3 py-1.5 text-sm rounded bg-accent text-accent-foreground font-bold"
+              >
+                {importing ? "Importing…" : "Confirm Import"}
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto max-h-64 border border-border rounded bg-card">
+            <table className="w-full text-xs">
+              <thead className="bg-muted sticky top-0">
+                <tr>
+                  <th className="text-left px-2 py-1">Row</th>
+                  <th className="text-left px-2 py-1">GR</th>
+                  <th className="text-left px-2 py-1">Name</th>
+                  <th className="text-left px-2 py-1">Class</th>
+                  <th className="text-left px-2 py-1">Roll</th>
+                  <th className="text-left px-2 py-1">Div</th>
+                  <th className="text-left px-2 py-1">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((r) => (
+                  <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/10" : ""}`}>
+                    <td className="px-2 py-1">{r._row}</td>
+                    <td className="px-2 py-1 font-mono">{r.gr_no}</td>
+                    <td className="px-2 py-1">{r.name}</td>
+                    <td className="px-2 py-1">{r.class_name}</td>
+                    <td className="px-2 py-1">{r.roll_no}</td>
+                    <td className="px-2 py-1">{r.division}</td>
+                    <td className="px-2 py-1">{r._error ? `❌ ${r._error}` : "✅ OK"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
       <p className="text-xs text-muted-foreground mb-3">
         Click ✏️ to fix spelling, roll numbers, or GR numbers. Changes save instantly and update the marksheet automatically.
