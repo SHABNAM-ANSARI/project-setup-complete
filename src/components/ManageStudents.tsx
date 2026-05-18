@@ -192,8 +192,86 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
+          <button
+            onClick={() => downloadStudentsTemplate(config)}
+            className="px-3 py-2 rounded-md border-2 border-primary/30 text-sm font-bold flex items-center gap-1 hover:bg-primary/5 text-primary"
+          >
+            <FileDown className="w-4 h-4" /> Template
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-bold flex items-center gap-1 hover:opacity-90"
+          >
+            <Upload className="w-4 h-4" /> Import CSV/Excel
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={handleFile}
+          />
         </div>
       </div>
+
+      {preview && (
+        <div className="mb-4 border-2 border-primary/30 rounded-lg p-4 bg-primary/5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-bold text-primary">
+              Preview: {preview.length} rows
+              {preview.some((r) => r._error) && (
+                <span className="ml-2 text-destructive text-sm">
+                  ({preview.filter((r) => r._error).length} with errors will be skipped)
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPreview(null)}
+                className="px-3 py-1.5 text-sm rounded border-2 border-muted-foreground/30 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmImport}
+                disabled={importing}
+                className="px-3 py-1.5 text-sm rounded bg-accent text-accent-foreground font-bold"
+              >
+                {importing ? "Importing…" : "Confirm Import"}
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto max-h-64 border border-border rounded bg-card">
+            <table className="w-full text-xs">
+              <thead className="bg-muted sticky top-0">
+                <tr>
+                  <th className="text-left px-2 py-1">Row</th>
+                  <th className="text-left px-2 py-1">GR</th>
+                  <th className="text-left px-2 py-1">Name</th>
+                  <th className="text-left px-2 py-1">Class</th>
+                  <th className="text-left px-2 py-1">Roll</th>
+                  <th className="text-left px-2 py-1">Div</th>
+                  <th className="text-left px-2 py-1">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((r) => (
+                  <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/10" : ""}`}>
+                    <td className="px-2 py-1">{r._row}</td>
+                    <td className="px-2 py-1 font-mono">{r.gr_no}</td>
+                    <td className="px-2 py-1">{r.name}</td>
+                    <td className="px-2 py-1">{r.class_name}</td>
+                    <td className="px-2 py-1">{r.roll_no}</td>
+                    <td className="px-2 py-1">{r.division}</td>
+                    <td className="px-2 py-1">{r._error ? `❌ ${r._error}` : "✅ OK"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
       <p className="text-xs text-muted-foreground mb-3">
         Click ✏️ to fix spelling, roll numbers, or GR numbers. Changes save instantly and update the marksheet automatically.
