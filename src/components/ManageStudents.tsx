@@ -22,8 +22,16 @@ interface Props {
 }
 
 export default function ManageStudents({ isAdmin, defaultClass }: Props) {
+  const { config } = usePortalConfig();
   const [className, setClassName] = useState<string>(defaultClass || CLASS_OPTIONS[0] || "");
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<StudentRow>>({});
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState<ParsedStudentRow[] | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
