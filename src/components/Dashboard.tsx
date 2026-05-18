@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MarksheetEntry from "./MarksheetEntry";
 import AdminDashboard from "./AdminDashboard";
+import ManageStudents from "./ManageStudents";
 import { CLASS_OPTIONS, STUDENTS_BY_CLASS, getTeacherForClass } from "@/data/schoolData";
 import { TERM_OPTIONS } from "@/data/subjectMapping";
 
@@ -12,7 +13,7 @@ interface DashboardProps {
   onChangePassword?: () => void;
 }
 
-type Mode = "home" | "enter" | "print" | "admin";
+type Mode = "home" | "enter" | "print" | "admin" | "manage";
 
 const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword }: DashboardProps) => {
   const [mode, setMode] = useState<Mode>("home");
@@ -66,7 +67,7 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
             <h2 className="text-2xl font-black text-primary mb-2 text-center">Welcome to Dunne's Portal</h2>
             <p className="text-center text-muted-foreground mb-8 text-sm">Choose what you'd like to do</p>
 
-            <div className={`grid grid-cols-1 ${isAdmin ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6 max-w-4xl mx-auto`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <button
                 onClick={() => setMode("enter")}
                 className="group p-8 rounded-xl border-2 border-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all shadow-md hover:shadow-xl"
@@ -89,6 +90,17 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
                 </div>
               </button>
 
+              <button
+                onClick={() => setMode("manage")}
+                className="group p-8 rounded-xl border-2 border-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all shadow-md hover:shadow-xl"
+              >
+                <div className="text-5xl mb-3">👥</div>
+                <div className="font-black text-xl mb-1">Manage Students</div>
+                <div className="text-xs opacity-80 group-hover:opacity-100">
+                  Fix name spellings, roll numbers & GR numbers. Changes sync to the marksheet instantly.
+                </div>
+              </button>
+
               {isAdmin && (
                 <button
                   onClick={() => setMode("admin")}
@@ -107,6 +119,9 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
 
         {/* ADMIN DASHBOARD */}
         {mode === "admin" && <AdminDashboard userMobile={userMobile} />}
+
+        {/* MANAGE STUDENTS (teachers + admins) */}
+        {mode === "manage" && <ManageStudents isAdmin={isAdmin} />}
 
         {/* SELECT CLASS / TERM (used by both Enter & Print) */}
         {(mode === "enter" || mode === "print") && (
