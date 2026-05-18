@@ -120,6 +120,9 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
         {/* ADMIN DASHBOARD */}
         {mode === "admin" && <AdminDashboard userMobile={userMobile} />}
 
+        {/* MANAGE STUDENTS (teachers + admins) */}
+        {mode === "manage" && <ManageStudents isAdmin={isAdmin} />}
+
         {/* SELECT CLASS / TERM (used by both Enter & Print) */}
         {(mode === "enter" || mode === "print") && (
           <div className="bg-card p-8 rounded-xl shadow-md border border-primary/10">
