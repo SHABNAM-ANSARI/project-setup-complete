@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MarksheetEntry from "./MarksheetEntry";
 import AdminDashboard from "./AdminDashboard";
+import ManageStudents from "./ManageStudents";
 import { CLASS_OPTIONS, STUDENTS_BY_CLASS, getTeacherForClass } from "@/data/schoolData";
 import { TERM_OPTIONS } from "@/data/subjectMapping";
 
