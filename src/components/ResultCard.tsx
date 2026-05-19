@@ -11,6 +11,8 @@ import {
   computeMaxTotal,
   computePercentage,
   getOverallResult,
+  isPrimaryGradeClass,
+  letterGradeFromMarks,
 } from "@/data/subjectMapping";
 
 interface ResultCardStudent {
@@ -34,7 +36,13 @@ interface ResultCardProps {
   principalSignature: string;
 }
 
-const TERMS = ["Term 1", "Term 2", "Term 3", "Result Summary"];
+const TERMS = ["Term 1", "Term 2", "Final (Term 3)", "Result Summary"];
+const TERM_KEY: Record<string, string> = {
+  "Term 1": "Term 1",
+  "Term 2": "Term 2",
+  "Final (Term 3)": "Term 3",
+  "Term 3": "Term 3",
+};
 
 const getOverallGrade = (pct: number): string => {
   if (pct >= 90) return "A+";
@@ -45,6 +53,7 @@ const getOverallGrade = (pct: number): string => {
   if (pct >= 40) return "D";
   return "E";
 };
+
 
 const DottedField = ({ label, width = "w-28" }: { label: string; width?: string }) => (
   <div className="flex items-center gap-2">
@@ -69,6 +78,10 @@ const ResultCard = ({
   const [summaryMarks, setSummaryMarks] = useState<Record<string, Record<string, number>>>({});
   const [summaryGrades, setSummaryGrades] = useState<Record<string, Record<string, string>>>({});
 
+  const primaryGradeOnly = isPrimaryGradeClass(className);
+  const isFinalTerm = activeTerm === "Final (Term 3)" || activeTerm === "Term 3";
+  const showCumulative = activeTerm === "Term 2" || isFinalTerm;
+
   useEffect(() => setActiveTerm(term), [term]);
 
   const total = computeTotal(student.marks, regularSubjects);
@@ -79,12 +92,12 @@ const ResultCard = ({
 
   const handleTerm = (t: string) => {
     setActiveTerm(t);
-    if (t !== "Result Summary") onTermChange?.(t);
+    if (t !== "Result Summary") onTermChange?.(TERM_KEY[t] ?? t);
   };
 
-  // Fetch all 3 terms when Result Summary tab is opened
+  // Always fetch all 3 terms — needed for Result Summary AND for cumulative
+  // columns on Term 2 / Final (Term 3) report cards.
   useEffect(() => {
-    if (activeTerm !== "Result Summary") return;
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -95,7 +108,7 @@ const ResultCard = ({
       if (cancelled || error || !data) return;
       const map: Record<string, Record<string, number>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };
       const gmap: Record<string, Record<string, string>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };
-      data.forEach((row: any) => {
+      data.forEach((row: { term: string; subject: string; marks: number | null; grade: string | null }) => {
         if (!map[row.term]) map[row.term] = {};
         if (!gmap[row.term]) gmap[row.term] = {};
         if (row.marks != null) map[row.term][row.subject] = row.marks;
@@ -105,7 +118,8 @@ const ResultCard = ({
       setSummaryGrades(gmap);
     })();
     return () => { cancelled = true; };
-  }, [activeTerm, className, student.grNo]);
+  }, [className, student.grNo]);
+
 
   return (
     <>
@@ -254,53 +268,131 @@ const ResultCard = ({
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <h3 className="font-bold text-[11px] mb-1 uppercase">Scholastic Areas (Pass = {PASSING_MARKS}/{MAX_MARKS})</h3>
+                <h3 className="font-bold text-[11px] mb-1 uppercase">
+                  Scholastic Areas
+                  {primaryGradeOnly ? " (Grades)" : ` (Pass = ${PASSING_MARKS}/${MAX_MARKS})`}
+                </h3>
                 <table className="w-full border border-primary text-[10px]">
                   <thead>
                     <tr className="bg-primary text-primary-foreground">
                       <th className="border border-primary px-1 py-0.5 text-left">Subject</th>
-                      <th className="border border-primary px-1 py-0.5 w-12">Marks</th>
-                      <th className="border border-primary px-1 py-0.5 w-10">Max</th>
-                      <th className="border border-primary px-1 py-0.5 w-10">P/F</th>
+                      {primaryGradeOnly ? (
+                        <>
+                          {showCumulative && <th className="border border-primary px-1 py-0.5 w-12">T1</th>}
+                          {isFinalTerm && <th className="border border-primary px-1 py-0.5 w-12">T2</th>}
+                          <th className="border border-primary px-1 py-0.5 w-14">{isFinalTerm ? "T3" : activeTerm === "Term 2" ? "T2" : "T1"}</th>
+                          {showCumulative && <th className="border border-primary px-1 py-0.5 w-16">Overall</th>}
+                        </>
+                      ) : (
+                        <>
+                          {showCumulative && <th className="border border-primary px-1 py-0.5 w-12">T1</th>}
+                          {isFinalTerm && <th className="border border-primary px-1 py-0.5 w-12">T2</th>}
+                          <th className="border border-primary px-1 py-0.5 w-12">{isFinalTerm ? "T3" : activeTerm === "Term 2" ? "T2" : "Marks"}</th>
+                          <th className="border border-primary px-1 py-0.5 w-10">Max</th>
+                          {showCumulative ? (
+                            <th className="border border-primary px-1 py-0.5 w-14">Cumul.</th>
+                          ) : (
+                            <th className="border border-primary px-1 py-0.5 w-10">P/F</th>
+                          )}
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {regularSubjects.map((sub) => {
                       const m = Number(student.marks[sub.name]) || 0;
+                      const t1 = Number(summaryMarks["Term 1"]?.[sub.name]) || 0;
+                      const t2 = Number(summaryMarks["Term 2"]?.[sub.name]) || 0;
+                      const cumul = isFinalTerm ? t1 + t2 + m : activeTerm === "Term 2" ? t1 + m : m;
                       const pass = m >= PASSING_MARKS;
                       return (
                         <tr key={sub.name}>
                           <td className="border border-primary px-1 py-0.5 uppercase">{sub.name}</td>
-                          <td className="border border-primary px-1 py-0.5 text-center font-semibold">{m}</td>
-                          <td className="border border-primary px-1 py-0.5 text-center">{MAX_MARKS}</td>
-                          <td className="border border-primary px-1 py-0.5 text-center font-bold">{pass ? "P" : "F"}</td>
+                          {primaryGradeOnly ? (
+                            <>
+                              {showCumulative && <td className="border border-primary px-1 py-0.5 text-center font-bold">{letterGradeFromMarks(t1)}</td>}
+                              {isFinalTerm && <td className="border border-primary px-1 py-0.5 text-center font-bold">{letterGradeFromMarks(t2)}</td>}
+                              <td className="border border-primary px-1 py-0.5 text-center font-bold">{letterGradeFromMarks(m)}</td>
+                              {showCumulative && (
+                                <td className="border border-primary px-1 py-0.5 text-center font-black">
+                                  {letterGradeFromMarks(cumul / (isFinalTerm ? 3 : 2))}
+                                </td>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {showCumulative && <td className="border border-primary px-1 py-0.5 text-center">{t1}</td>}
+                              {isFinalTerm && <td className="border border-primary px-1 py-0.5 text-center">{t2}</td>}
+                              <td className="border border-primary px-1 py-0.5 text-center font-semibold">{m}</td>
+                              <td className="border border-primary px-1 py-0.5 text-center">{MAX_MARKS}</td>
+                              {showCumulative ? (
+                                <td className="border border-primary px-1 py-0.5 text-center font-bold">{cumul}</td>
+                              ) : (
+                                <td className="border border-primary px-1 py-0.5 text-center font-bold">{pass ? "P" : "F"}</td>
+                              )}
+                            </>
+                          )}
                         </tr>
                       );
                     })}
-                    <tr className="font-black bg-primary/10">
-                      <td className="border border-primary px-1 py-0.5">TOTAL</td>
-                      <td className="border border-primary px-1 py-0.5 text-center">{total}</td>
-                      <td className="border border-primary px-1 py-0.5 text-center">{max}</td>
-                      <td className="border border-primary px-1 py-0.5 text-center">—</td>
-                    </tr>
+                    {!primaryGradeOnly && (
+                      <tr className="font-black bg-primary/10">
+                        <td className="border border-primary px-1 py-0.5">TOTAL</td>
+                        {showCumulative && (
+                          <td className="border border-primary px-1 py-0.5 text-center">
+                            {regularSubjects.reduce((a, s) => a + (Number(summaryMarks["Term 1"]?.[s.name]) || 0), 0)}
+                          </td>
+                        )}
+                        {isFinalTerm && (
+                          <td className="border border-primary px-1 py-0.5 text-center">
+                            {regularSubjects.reduce((a, s) => a + (Number(summaryMarks["Term 2"]?.[s.name]) || 0), 0)}
+                          </td>
+                        )}
+                        <td className="border border-primary px-1 py-0.5 text-center">{total}</td>
+                        <td className="border border-primary px-1 py-0.5 text-center">{max}</td>
+                        <td className="border border-primary px-1 py-0.5 text-center">
+                          {showCumulative
+                            ? regularSubjects.reduce(
+                                (a, s) =>
+                                  a +
+                                  (Number(summaryMarks["Term 1"]?.[s.name]) || 0) +
+                                  (isFinalTerm ? Number(summaryMarks["Term 2"]?.[s.name]) || 0 : 0) +
+                                  (Number(student.marks[s.name]) || 0),
+                                0,
+                              )
+                            : "—"}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
 
-                <div className="grid grid-cols-3 gap-1 mt-1 text-[10px]">
-                  <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
-                    <div className="text-[9px] opacity-75">Total</div>
-                    <div className="font-black">{total}/{max}</div>
+                {!primaryGradeOnly && (
+                  <div className="grid grid-cols-3 gap-1 mt-1 text-[10px]">
+                    <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
+                      <div className="text-[9px] opacity-75">Total</div>
+                      <div className="font-black">{total}/{max}</div>
+                    </div>
+                    <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
+                      <div className="text-[9px] opacity-75">Percentage</div>
+                      <div className="font-black">{pct.toFixed(1)}%</div>
+                    </div>
+                    <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
+                      <div className="text-[9px] opacity-75">Result</div>
+                      <div className="font-black">{result} ({overall})</div>
+                    </div>
                   </div>
-                  <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
-                    <div className="text-[9px] opacity-75">Percentage</div>
-                    <div className="font-black">{pct.toFixed(1)}%</div>
+                )}
+                {primaryGradeOnly && (
+                  <div className="mt-1 text-[10px] border border-primary/40 rounded px-2 py-1 bg-primary/5">
+                    <strong>Overall Grade:</strong> {letterGradeFromMarks(pct)} &nbsp;|&nbsp; <strong>Result:</strong> {result}
+                    <div className="text-[9px] opacity-75 mt-0.5">
+                      Scale: 91–100 A1 · 81–90 A2 · 71–80 B1 · 61–70 B2 · 51–60 C1 · 41–50 C2 · 33–40 D · &lt;33 E
+                    </div>
                   </div>
-                  <div className="border border-primary/40 rounded px-1 py-0.5 text-center bg-primary/5">
-                    <div className="text-[9px] opacity-75">Result</div>
-                    <div className="font-black">{result} ({overall})</div>
-                  </div>
-                </div>
+                )}
               </div>
+
 
               <div>
                 <h3 className="font-bold text-[11px] mb-1 uppercase">Co-Scholastic Areas (Grade)</h3>
