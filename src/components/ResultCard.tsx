@@ -78,6 +78,10 @@ const ResultCard = ({
   const [summaryMarks, setSummaryMarks] = useState<Record<string, Record<string, number>>>({});
   const [summaryGrades, setSummaryGrades] = useState<Record<string, Record<string, string>>>({});
 
+  const primaryGradeOnly = isPrimaryGradeClass(className);
+  const isFinalTerm = activeTerm === "Final (Term 3)" || activeTerm === "Term 3";
+  const showCumulative = activeTerm === "Term 2" || isFinalTerm;
+
   useEffect(() => setActiveTerm(term), [term]);
 
   const total = computeTotal(student.marks, regularSubjects);
@@ -88,12 +92,12 @@ const ResultCard = ({
 
   const handleTerm = (t: string) => {
     setActiveTerm(t);
-    if (t !== "Result Summary") onTermChange?.(t);
+    if (t !== "Result Summary") onTermChange?.(TERM_KEY[t] ?? t);
   };
 
-  // Fetch all 3 terms when Result Summary tab is opened
+  // Always fetch all 3 terms — needed for Result Summary AND for cumulative
+  // columns on Term 2 / Final (Term 3) report cards.
   useEffect(() => {
-    if (activeTerm !== "Result Summary") return;
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -104,7 +108,7 @@ const ResultCard = ({
       if (cancelled || error || !data) return;
       const map: Record<string, Record<string, number>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };
       const gmap: Record<string, Record<string, string>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };
-      data.forEach((row: any) => {
+      data.forEach((row: { term: string; subject: string; marks: number | null; grade: string | null }) => {
         if (!map[row.term]) map[row.term] = {};
         if (!gmap[row.term]) gmap[row.term] = {};
         if (row.marks != null) map[row.term][row.subject] = row.marks;
@@ -114,7 +118,8 @@ const ResultCard = ({
       setSummaryGrades(gmap);
     })();
     return () => { cancelled = true; };
-  }, [activeTerm, className, student.grNo]);
+  }, [className, student.grNo]);
+
 
   return (
     <>
