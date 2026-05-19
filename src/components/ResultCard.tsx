@@ -11,6 +11,8 @@ import {
   computeMaxTotal,
   computePercentage,
   getOverallResult,
+  isPrimaryGradeClass,
+  letterGradeFromMarks,
 } from "@/data/subjectMapping";
 
 interface ResultCardStudent {
@@ -34,7 +36,13 @@ interface ResultCardProps {
   principalSignature: string;
 }
 
-const TERMS = ["Term 1", "Term 2", "Term 3", "Result Summary"];
+const TERMS = ["Term 1", "Term 2", "Final (Term 3)", "Result Summary"];
+const TERM_KEY: Record<string, string> = {
+  "Term 1": "Term 1",
+  "Term 2": "Term 2",
+  "Final (Term 3)": "Term 3",
+  "Term 3": "Term 3",
+};
 
 const getOverallGrade = (pct: number): string => {
   if (pct >= 90) return "A+";
@@ -45,6 +53,7 @@ const getOverallGrade = (pct: number): string => {
   if (pct >= 40) return "D";
   return "E";
 };
+
 
 const DottedField = ({ label, width = "w-28" }: { label: string; width?: string }) => (
   <div className="flex items-center gap-2">
