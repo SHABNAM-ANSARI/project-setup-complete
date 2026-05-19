@@ -147,11 +147,13 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
       roll_no: r.roll_no,
       division: r.division,
       gender: r.gender,
+      exam_year: r.extra?.exam_year ?? "2026-27",
       parent_name: r.extra?.parent_name ?? null,
       address: r.extra?.address ?? null,
       dob: r.extra?.dob ?? null,
       contact: r.extra?.phone ?? null,
     }));
+
     const { error } = await supabase
       .from("students")
       .upsert(payload, { onConflict: "gr_no,class_name" });
