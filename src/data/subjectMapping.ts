@@ -115,6 +115,26 @@ export const getSubjectsForClass = (className: string): SubjectDef[] =>
 
 export const TERM_OPTIONS = ["Term 1", "Term 2", "Term 3"] as const;
 
+// Classes that show GRADES only on the report card (raw marks hidden)
+const PRIMARY_GRADE_CLASSES = new Set([
+  "Nursery", "Jr.KG", "Sr.KG",
+  "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+]);
+export const isPrimaryGradeClass = (className: string): boolean =>
+  PRIMARY_GRADE_CLASSES.has(className);
+
+// Letter-grade scale (CBSE-style) for primary section
+export const letterGradeFromMarks = (mark: number): string => {
+  if (mark >= 91) return "A1";
+  if (mark >= 81) return "A2";
+  if (mark >= 71) return "B1";
+  if (mark >= 61) return "B2";
+  if (mark >= 51) return "C1";
+  if (mark >= 41) return "C2";
+  if (mark >= 33) return "D";
+  return "E";
+};
+
 // --- Calculation helpers (single source of truth) ---
 
 export const computeTotal = (
@@ -150,3 +170,4 @@ export const getOverallResult = (
   });
   return anyFail ? "FAIL" : "PASS";
 };
+

@@ -30,15 +30,45 @@ export interface ParsedStudentRow {
 const REQ_MARKS = ["gr_no", "student_name", "subject", "term"];
 const REQ_STUDENTS = ["gr_no", "name"];
 
+// Normalize ANY header into snake_case: lower-case, collapse any run of
+// non-alphanumeric chars (spaces, dashes, dots, multiple underscores) to a
+// single underscore, trim leading/trailing underscores.
 function normalizeKey(k: string): string {
-  return String(k).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return String(k)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
-function readSheet(buf: ArrayBuffer): Record<string, unknown>[] {
-  const wb = XLSX.read(buf, { type: "array" });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "", raw: false });
+// Map common header aliases the user might upload to our canonical keys.
+const STUDENT_ALIASES: Record<string, string> = {
+  student_name: "name",
+  full_name: "name",
+  class: "class_name",
+  std: "class_name",
+  standard: "class_name",
+  div: "division",
+  sex: "gender",
+  academic_year: "exam_year",
+  year: "exam_year",
+  session: "exam_year",
+  dateofbirth: "dob",
+  date_of_birth: "dob",
+  birthdate: "dob",
+  phone: "contact",
+  mobile: "contact",
+  parent: "parent_name",
+  guardian: "parent_name",
+};
+
+function applyAliases(row: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[STUDENT_ALIASES[k] ?? k] = v;
+  }
+  return out;
 }
+
 
 export async function parseMarksFile(file: File, defaultClass: string): Promise<ParsedMarkRow[]> {
   const json = readSheet(await file.arrayBuffer());
