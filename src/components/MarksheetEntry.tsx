@@ -87,12 +87,12 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
         supabase
           .from("marks")
           .select("gr_no, subject, marks, grade")
-          .eq("class_name", selectedClass)
+          .eq("class", selectedClass)
           .eq("term", currentTerm),
         supabase
           .from("student_term_remarks")
           .select("gr_no, remarks, teacher_signature, principal_signature")
-          .eq("class_name", selectedClass)
+          .eq("class", selectedClass)
           .eq("term", currentTerm),
       ]);
 
@@ -164,7 +164,7 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
     setSavingKey(student.grNo);
     const marksData = [
       ...regularSubjects.map((sub) => ({
-        class_name: selectedClass,
+        class: selectedClass,
         term: currentTerm,
         gr_no: student.grNo,
         student_name: student.name,
@@ -176,7 +176,7 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
       ...creditSubjects
         .filter((sub) => student.grades[sub.name])
         .map((sub) => ({
-          class_name: selectedClass,
+          class: selectedClass,
           term: currentTerm,
           gr_no: student.grNo,
           student_name: student.name,
@@ -188,7 +188,7 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
     ];
     const { error } = await supabase
       .from("marks")
-      .upsert(marksData, { onConflict: "class_name,term,gr_no,subject" });
+      .upsert(marksData, { onConflict: "class,term,gr_no,subject" });
     setSavingKey("");
     if (error) {
       console.error(error);
@@ -224,7 +224,7 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
 
   const persistRemarks = async (student: Student, row: RemarksRow) => {
     const remarksData = {
-      class_name: selectedClass,
+      class: selectedClass,
       term: currentTerm,
       gr_no: student.grNo,
       student_name: student.name,
@@ -236,7 +236,7 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
 
     const { error } = await supabase
       .from("student_term_remarks")
-      .upsert(remarksData, { onConflict: "class_name,term,gr_no" });
+      .upsert(remarksData, { onConflict: "class,term,gr_no" });
     if (error) {
       console.error(error);
       toast.error(`Could not save remarks for ${student.name}`);

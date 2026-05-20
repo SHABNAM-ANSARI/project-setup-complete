@@ -103,7 +103,7 @@ const ResultCard = ({
       const { data, error } = await supabase
         .from("marks")
         .select("term, subject, marks, grade")
-        .eq("class_name", className)
+        .eq("class", className)
         .eq("gr_no", student.grNo);
       if (cancelled || error || !data) return;
       const map: Record<string, Record<string, number>> = { "Term 1": {}, "Term 2": {}, "Term 3": {} };

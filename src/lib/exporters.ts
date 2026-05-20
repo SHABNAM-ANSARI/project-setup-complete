@@ -4,14 +4,12 @@ import jsPDF from "jspdf";
 import { getSubjectsForClass } from "@/data/subjectMapping";
 import { calcResult, type MarkRow } from "@/lib/grades";
 import type { PortalConfig } from "@/lib/portalConfig";
-import { enabledExtraFields } from "@/lib/portalConfig";
 
 export interface StudentForExport {
   gr_no: string;
-  name: string;
+  student_name: string;
   roll_no?: string | null;
   division?: string | null;
-  extra?: Record<string, string> | null;
 }
 
 export interface MarkForExport {
@@ -33,13 +31,11 @@ export function exportClassExcel(opts: {
   const subjects = getSubjectsForClass(className);
   const regulars = subjects.filter((s) => s.type === "regular");
   const credits = subjects.filter((s) => s.type === "credit");
-  const extras = enabledExtraFields(config);
 
   const header = [
     "GR No",
     "Roll",
     "Student Name",
-    ...extras.map((e) => e.label),
     ...regulars.map((s) => s.name),
     ...credits.map((s) => `${s.name} (Grade)`),
     "Total",
@@ -60,8 +56,7 @@ export function exportClassExcel(opts: {
       return [
         s.gr_no,
         s.roll_no || "",
-        s.name,
-        ...extras.map((e) => s.extra?.[e.key] || ""),
+        s.student_name,
         ...regulars.map((sub) => byKey[sub.name]?.marks ?? ""),
         ...credits.map((sub) => byKey[sub.name]?.grade ?? ""),
         summary.total,
@@ -106,14 +101,13 @@ export async function exportClassPdf(opts: {
   className: string;
   term: string;
   students: PdfStudent[];
-  marks: MarkForExport[]; // for "standard": current term; for "multi_term": all terms
+  marks: MarkForExport[];
   config: PortalConfig;
 }) {
   const { className, term, students, marks, config } = opts;
   const subjects = getSubjectsForClass(className);
   const regulars = subjects.filter((s) => s.type === "regular");
   const credits = subjects.filter((s) => s.type === "credit");
-  const extras = enabledExtraFields(config);
   const { orientation, template } = config.report;
 
   const pdf = new jsPDF(orientation === "landscape" ? "l" : "p", "mm", "a4");
@@ -165,7 +159,7 @@ export async function exportClassPdf(opts: {
   const drawStudentMeta = (s: PdfStudent, y: number): number => {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
-    pdf.text(`${s.name}`, 12, y);
+    pdf.text(`${s.student_name}`, 12, y);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
     pdf.text(`GR: ${s.gr_no}`, pageW - 60, y);
@@ -173,18 +167,9 @@ export async function exportClassPdf(opts: {
     let yy = y + 5;
     pdf.text(`Class: ${className}    Term: ${term}    Year: ${config.school.academicYear}`, 12, yy);
     yy += 4;
-    const extraLine = extras
-      .map((e) => `${e.label}: ${s.extra?.[e.key] || "—"}`)
-      .join("    ");
-    if (extraLine) {
-      pdf.setFontSize(8);
-      pdf.text(extraLine, 12, yy, { maxWidth: pageW - 24 });
-      yy += 4;
-    }
     return yy + 2;
   };
 
-  // Template renderers ──────────────────────────────────────
   const renderStandard = (s: PdfStudent) => {
     const byKey: Record<string, MarkRow> = {};
     for (const m of marks.filter((m) => m.gr_no === s.gr_no)) byKey[m.subject] = m;
@@ -193,7 +178,6 @@ export async function exportClassPdf(opts: {
     let y = drawHeader();
     y = drawStudentMeta(s, y);
 
-    // Scholastic table
     pdf.setFont("helvetica", "bold");
     pdf.setFillColor(225, 230, 245);
     pdf.rect(12, y, pageW - 24, 6, "F");
@@ -284,13 +268,11 @@ export async function exportClassPdf(opts: {
   };
 
   const renderTriFold = (s: PdfStudent) => {
-    // Landscape recommended; we still divide page into 3 vertical panels.
     const byKey: Record<string, MarkRow> = {};
     for (const m of marks.filter((m) => m.gr_no === s.gr_no)) byKey[m.subject] = m;
     const summary = calcResult(subjects, byKey);
     const panelW = pageW / 3;
 
-    // Fold guidelines
     pdf.setDrawColor(180);
     pdf.setLineDashPattern([2, 2], 0);
     pdf.line(panelW, 5, panelW, pageH - 5);
@@ -298,7 +280,6 @@ export async function exportClassPdf(opts: {
     pdf.setLineDashPattern([], 0);
     pdf.setDrawColor(0);
 
-    // Panel 1 — Cover
     if (logoData) { try { pdf.addImage(logoData, "PNG", panelW / 2 - 12, 25, 24, 24); } catch { /* */ } }
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
@@ -314,13 +295,12 @@ export async function exportClassPdf(opts: {
     pdf.setFontSize(10);
     pdf.text(`Academic Year ${config.school.academicYear}`, panelW / 2, 108, { align: "center" });
     pdf.setFontSize(11);
-    pdf.text(s.name, panelW / 2, 130, { align: "center" });
+    pdf.text(s.student_name, panelW / 2, 130, { align: "center" });
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
     pdf.text(`GR: ${s.gr_no}   Roll: ${s.roll_no || "—"}`, panelW / 2, 137, { align: "center" });
     pdf.text(`${className} · ${term}`, panelW / 2, 143, { align: "center" });
 
-    // Panel 2 — Scholastic
     let y = 15;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
@@ -347,7 +327,6 @@ export async function exportClassPdf(opts: {
     pdf.text(`Result: ${summary.passed ? "PASS" : "FAIL"}`, panelW + 7, y);
     pdf.setTextColor(0, 0, 0);
 
-    // Panel 3 — Co-Scholastic + Signatures
     let y3 = 15;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
@@ -365,7 +344,6 @@ export async function exportClassPdf(opts: {
       pdf.text(byKey[sub.name]?.grade || "—", 2 * panelW + panelW - 20, y3);
       y3 += 5;
     });
-    // Signatures bottom
     const sy = pageH - 30;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);

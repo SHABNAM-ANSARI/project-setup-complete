@@ -2,15 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Edit3, Save, X, Search, RefreshCw, Trash2, Upload, FileDown } from "lucide-react";
 import { parseStudentsFile, downloadStudentsTemplate, type ParsedStudentRow } from "@/lib/marksParser";
-import { usePortalConfig } from "@/lib/portalConfig";
 import { supabase } from "@/lib/supabase";
 import { CLASS_OPTIONS } from "@/data/schoolData";
 
 interface StudentRow {
   id: string;
   gr_no: string;
-  name: string;
-  class_name: string;
+  student_name: string;
+  class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
@@ -22,7 +21,6 @@ interface Props {
 }
 
 export default function ManageStudents({ isAdmin, defaultClass }: Props) {
-  const { config } = usePortalConfig();
   const [className, setClassName] = useState<string>(defaultClass || CLASS_OPTIONS[0] || "");
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,17 +31,16 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
   const [preview, setPreview] = useState<ParsedStudentRow[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-
   const load = async () => {
     if (!className) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("id,gr_no,name,class_name,roll_no,division,gender")
-      .eq("class_name", className)
+      .select("id,gr_no,student_name,class,roll_no,division,gender")
+      .eq("class", className)
       .order("roll_no", { ascending: true });
     if (error) toast.error(error.message);
-    setStudents((data as StudentRow[]) || []);
+    setStudents((data as unknown as StudentRow[]) || []);
     setLoading(false);
   };
 
@@ -56,7 +53,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     if (!q) return students;
     return students.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) ||
+        s.student_name.toLowerCase().includes(q) ||
         s.gr_no.toLowerCase().includes(q) ||
         (s.roll_no || "").toLowerCase().includes(q),
     );
@@ -73,7 +70,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
   };
 
   const saveEdit = async (original: StudentRow) => {
-    const newName = String(draft.name || "").trim().toUpperCase();
+    const newName = String(draft.student_name || "").trim().toUpperCase();
     const newGr = String(draft.gr_no || "").trim();
     const newRoll = (draft.roll_no || "").toString().trim() || null;
     const newDivision = (draft.division || "").toString().trim() || null;
@@ -81,29 +78,27 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     if (!newName) return toast.error("Name cannot be empty");
     if (!newGr) return toast.error("GR No cannot be empty");
 
-    // 1. Update student row
     const { error: sErr } = await supabase
       .from("students")
       .update({
-        name: newName,
+        student_name: newName,
         gr_no: newGr,
         roll_no: newRoll,
         division: newDivision,
         updated_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", original.id);
     if (sErr) return toast.error(`Student update failed: ${sErr.message}`);
 
-    // 2. Cascade name / gr_no changes to marks so result cards stay correct
     const cascade: Record<string, string> = {};
-    if (newName !== original.name) cascade.student_name = newName;
+    if (newName !== original.student_name) cascade.student_name = newName;
     if (newGr !== original.gr_no) cascade.gr_no = newGr;
     if (Object.keys(cascade).length) {
       const { error: mErr } = await supabase
         .from("marks")
-        .update(cascade)
+        .update(cascade as never)
         .eq("gr_no", original.gr_no)
-        .eq("class_name", original.class_name);
+        .eq("class", original.class);
       if (mErr) toast.error(`Marks sync failed: ${mErr.message}`);
     }
 
@@ -114,7 +109,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
 
   const deleteStudent = async (s: StudentRow) => {
     if (!isAdmin) return;
-    if (!confirm(`Delete ${s.name} (GR ${s.gr_no})? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${s.student_name} (GR ${s.gr_no})? This cannot be undone.`)) return;
     const { error } = await supabase.from("students").delete().eq("id", s.id);
     if (error) return toast.error(error.message);
     toast.success("Student deleted");
@@ -125,7 +120,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const rows = await parseStudentsFile(file, className, config);
+      const rows = await parseStudentsFile(file, className);
       if (!rows.length) return toast.error("File is empty");
       setPreview(rows);
     } catch (err) {
@@ -142,17 +137,17 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     setImporting(true);
     const payload = valid.map((r) => ({
       gr_no: r.gr_no,
-      name: r.name,
-      class_name: r.class_name,
+      student_name: r.student_name,
+      class: r.class,
       roll_no: r.roll_no,
       division: r.division,
       gender: r.gender,
-      exam_year: r.extra?.exam_year ?? "2026-27",
+      exam_year: r.exam_year ?? "2026-27",
     }));
 
     const { error } = await supabase
       .from("students")
-      .upsert(payload, { onConflict: "gr_no,class_name" });
+      .upsert(payload as never, { onConflict: "gr_no,class" });
     setImporting(false);
     if (error) return toast.error(`Import failed: ${error.message}`);
     toast.success(`Imported ${payload.length} students`);
@@ -191,7 +186,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           <button
-            onClick={() => downloadStudentsTemplate(config)}
+            onClick={() => downloadStudentsTemplate()}
             className="px-3 py-2 rounded-md border-2 border-primary/30 text-sm font-bold flex items-center gap-1 hover:bg-primary/5 text-primary"
           >
             <FileDown className="w-4 h-4" /> Template
@@ -245,7 +240,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
                 <tr>
                   <th className="text-left px-2 py-1">Row</th>
                   <th className="text-left px-2 py-1">GR</th>
-                  <th className="text-left px-2 py-1">Name</th>
+                  <th className="text-left px-2 py-1">Student Name</th>
                   <th className="text-left px-2 py-1">Class</th>
                   <th className="text-left px-2 py-1">Roll</th>
                   <th className="text-left px-2 py-1">Div</th>
@@ -257,8 +252,8 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
                   <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/10" : ""}`}>
                     <td className="px-2 py-1">{r._row}</td>
                     <td className="px-2 py-1 font-mono">{r.gr_no}</td>
-                    <td className="px-2 py-1">{r.name}</td>
-                    <td className="px-2 py-1">{r.class_name}</td>
+                    <td className="px-2 py-1">{r.student_name}</td>
+                    <td className="px-2 py-1">{r.class}</td>
                     <td className="px-2 py-1">{r.roll_no}</td>
                     <td className="px-2 py-1">{r.division}</td>
                     <td className="px-2 py-1">{r._error ? `❌ ${r._error}` : "✅ OK"}</td>
@@ -270,7 +265,6 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
         </div>
       )}
 
-
       <p className="text-xs text-muted-foreground mb-3">
         Click ✏️ to fix spelling, roll numbers, or GR numbers. Changes save instantly and update the marksheet automatically.
       </p>
@@ -281,7 +275,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
             <tr>
               <th className="text-left px-3 py-2">GR No</th>
               <th className="text-left px-3 py-2">Roll</th>
-              <th className="text-left px-3 py-2">Name</th>
+              <th className="text-left px-3 py-2">Student Name</th>
               <th className="text-left px-3 py-2">Div</th>
               <th className="text-left px-3 py-2">Gender</th>
               <th className="text-right px-3 py-2">Actions</th>
@@ -314,10 +308,10 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
                     {isEdit ? (
                       <input
                         className="input-field py-1 w-full min-w-[200px]"
-                        value={String(draft.name ?? "")}
-                        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                        value={String(draft.student_name ?? "")}
+                        onChange={(e) => setDraft({ ...draft, student_name: e.target.value })}
                       />
-                    ) : s.name}
+                    ) : s.student_name}
                   </td>
                   <td className="px-3 py-2">
                     {isEdit ? (
