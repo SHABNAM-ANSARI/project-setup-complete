@@ -41,6 +41,8 @@ function normalizeKey(k: string): string {
 }
 
 // Map common header aliases the user might upload to our canonical keys.
+// Strictly limited to columns that exist in the students table:
+// gr_no, student_name/name, roll_no, class/class_name, division, gender, exam_year.
 const STUDENT_ALIASES: Record<string, string> = {
   student_name: "name",
   full_name: "name",
@@ -52,13 +54,6 @@ const STUDENT_ALIASES: Record<string, string> = {
   academic_year: "exam_year",
   year: "exam_year",
   session: "exam_year",
-  dateofbirth: "dob",
-  date_of_birth: "dob",
-  birthdate: "dob",
-  phone: "contact",
-  mobile: "contact",
-  parent: "parent_name",
-  guardian: "parent_name",
 };
 
 function applyAliases(row: Record<string, string>): Record<string, string> {
