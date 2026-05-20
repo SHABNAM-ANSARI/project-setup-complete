@@ -23,30 +23,25 @@ interface DBStudent {
   id: string;
   gr_no: string;
   class: string;
-  name: string;
+  student_name: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
-  dob: string | null;
-  contact: string | null;
   exam_year: string | null;
 }
 
 const emptyStudent = (cls: string): Partial<DBStudent> => ({
   gr_no: "",
   class: cls,
-  name: "",
+  student_name: "",
   roll_no: "",
   division: "A",
   gender: "M",
-  dob: "",
-  contact: "",
   exam_year: "2026-27",
 });
 
 type Tab = "students" | "marks";
 
-// 🔒 Master password gate. Change this string to update the password.
 const MASTER_PASSWORD = "dunnes@2027";
 const UNLOCK_KEY = "dunnes_admin_unlocked";
 
@@ -68,15 +63,15 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("*")
+      .select("id,gr_no,class,student_name,roll_no,division,gender,exam_year")
       .eq("class", cls)
-      .order("name");
+      .order("student_name");
     setLoading(false);
     if (error) {
       toast.error("Failed to load students");
       return;
     }
-    setStudents((data as DBStudent[]) || []);
+    setStudents((data as unknown as DBStudent[]) || []);
   };
 
   useEffect(() => {
@@ -85,25 +80,23 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
 
   const saveStudent = async () => {
     if (!editing) return;
-    if (!editing.gr_no || !editing.name || !editing.class) {
-      toast.error("GR No, Name, and Class are required");
+    if (!editing.gr_no || !editing.student_name || !editing.class) {
+      toast.error("GR No, Student Name, and Class are required");
       return;
     }
     setSaving(true);
-    const payload: any = {
+    const payload = {
       gr_no: editing.gr_no,
       class: editing.class,
-      name: editing.name,
+      student_name: editing.student_name,
       roll_no: editing.roll_no || null,
       division: editing.division || null,
       gender: editing.gender || null,
-      dob: editing.dob || null,
-      contact: editing.contact || null,
       exam_year: editing.exam_year || null,
     };
     const { error } = await supabase
       .from("students")
-      .upsert(payload, { onConflict: "gr_no,class" });
+      .upsert(payload as never, { onConflict: "gr_no,class" });
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -123,13 +116,12 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
   };
 
   const inlineUpdate = async (id: string, patch: Partial<DBStudent>) => {
-    const { error } = await supabase.from("students").update(patch).eq("id", id);
+    const { error } = await supabase.from("students").update(patch as never).eq("id", id);
     if (error) return toast.error(error.message);
     setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
     toast.success("Updated");
   };
 
-  // ---------- Password gate ----------
   if (!unlocked) {
     const tryUnlock = (e?: React.FormEvent) => {
       e?.preventDefault();
@@ -168,12 +160,11 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
     );
   }
 
-  // ---------- Filter (search) ----------
   const filteredStudents = students.filter((s) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (
-      s.name.toLowerCase().includes(q) ||
+      s.student_name.toLowerCase().includes(q) ||
       s.gr_no.toLowerCase().includes(q) ||
       (s.roll_no || "").toLowerCase().includes(q)
     );
@@ -262,7 +253,6 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
   );
 };
 
-/* ----- STUDENTS TAB ----- */
 const StudentsTab = ({
   students, totalCount, loading, classFilter, onAdd, onEdit, onDelete, onInlineUpdate, onBulkImported,
 }: {
@@ -290,20 +280,16 @@ const StudentsTab = ({
       }
       const header = rows[0].map((h) => h.trim().toLowerCase());
       const idx = (k: string) => header.indexOf(k);
-      const cGr = idx("gr_no") !== -1 ? idx("gr_no") : idx("gr no");
-      const cName = idx("name");
-      const cClass = idx("class") !== -1 ? idx("class") : idx("class");
-      const cRoll = idx("roll_no") !== -1 ? idx("roll_no") : idx("roll");
-      const cDiv = idx("division") !== -1 ? idx("division") : idx("div");
+      const cGr = idx("gr_no");
+      const cName = idx("student_name") !== -1 ? idx("student_name") : idx("name");
+      const cClass = idx("class") !== -1 ? idx("class") : idx("class_name");
+      const cRoll = idx("roll_no");
+      const cDiv = idx("division");
       const cGender = idx("gender");
-      const cDob = idx("dob");
-      const cParent = idx("parent_name") !== -1 ? idx("parent_name") : idx("parent");
-      const cContact = idx("contact");
-      const cAddress = idx("address");
-      const cYear = idx("exam_year") !== -1 ? idx("exam_year") : idx("year");
+      const cYear = idx("exam_year") !== -1 ? idx("exam_year") : idx("academic_year");
 
       if (cGr === -1 || cName === -1) {
-        toast.error("CSV must include 'gr_no' and 'name' columns");
+        toast.error("CSV must include 'gr_no' and 'student_name' columns");
         return;
       }
 
@@ -311,15 +297,11 @@ const StudentsTab = ({
         .filter((r) => (r[cGr] || "").trim() && (r[cName] || "").trim())
         .map((r) => ({
           gr_no: (r[cGr] || "").trim(),
-          name: (r[cName] || "").trim(),
+          student_name: (r[cName] || "").trim(),
           class: (cClass !== -1 ? (r[cClass] || "").trim() : "") || classFilter,
           roll_no: cRoll !== -1 ? ((r[cRoll] || "").trim() || null) : null,
           division: cDiv !== -1 ? ((r[cDiv] || "").trim() || null) : null,
           gender: cGender !== -1 ? ((r[cGender] || "").trim() || null) : null,
-          dob: cDob !== -1 ? ((r[cDob] || "").trim() || null) : null,
-          parent_name: cParent !== -1 ? ((r[cParent] || "").trim() || null) : null,
-          contact: cContact !== -1 ? ((r[cContact] || "").trim() || null) : null,
-          address: cAddress !== -1 ? ((r[cAddress] || "").trim() || null) : null,
           exam_year: cYear !== -1 ? ((r[cYear] || "").trim() || "2026-27") : "2026-27",
         }));
 
@@ -330,7 +312,7 @@ const StudentsTab = ({
 
       const { error } = await supabase
         .from("students")
-        .upsert(payload, { onConflict: "gr_no,class" });
+        .upsert(payload as never, { onConflict: "gr_no,class" });
       if (error) {
         toast.error(`Import failed: ${error.message}`);
         return;
@@ -361,7 +343,7 @@ const StudentsTab = ({
             onClick={() => fileRef.current?.click()}
             disabled={importing}
             className="border-2 border-primary text-primary px-3 py-2 rounded-md font-bold text-sm hover:bg-primary/10 disabled:opacity-50"
-            title="CSV columns: gr_no, name, class, roll_no (optional), division, gender, dob, parent_name, contact, address"
+            title="CSV columns: gr_no, student_name, class, roll_no, division, gender, exam_year"
           >
             {importing ? "Importing…" : "📥 Bulk Import CSV"}
           </button>
@@ -375,7 +357,7 @@ const StudentsTab = ({
       </div>
 
       <div className="text-[11px] text-muted-foreground">
-        💡 Click any <strong>Roll No</strong> or <strong>Name</strong> cell to edit it inline. Roll No can be left blank.
+        💡 Click any <strong>Roll No</strong> or <strong>Student Name</strong> cell to edit it inline.
       </div>
 
       {loading ? (
@@ -388,12 +370,11 @@ const StudentsTab = ({
             <thead className="bg-primary text-primary-foreground">
               <tr>
                 <th className="px-2 py-2 text-left">GR No</th>
-                <th className="px-2 py-2 text-left">Name</th>
+                <th className="px-2 py-2 text-left">Student Name</th>
                 <th className="px-2 py-2">Roll</th>
                 <th className="px-2 py-2">Div</th>
                 <th className="px-2 py-2">Gender</th>
-                <th className="px-2 py-2 text-left">Parent</th>
-                <th className="px-2 py-2 text-left">Contact</th>
+                <th className="px-2 py-2">Year</th>
                 <th className="px-2 py-2"></th>
               </tr>
             </thead>
@@ -403,8 +384,8 @@ const StudentsTab = ({
                   <td className="px-2 py-1.5 font-mono">{s.gr_no}</td>
                   <td className="px-2 py-1.5 font-semibold uppercase">
                     <InlineEdit
-                      value={s.name}
-                      onSave={(v) => v && v !== s.name && onInlineUpdate(s.id, { name: v })}
+                      value={s.student_name}
+                      onSave={(v) => v && v !== s.student_name && onInlineUpdate(s.id, { student_name: v })}
                       className="uppercase font-semibold"
                     />
                   </td>
@@ -418,7 +399,7 @@ const StudentsTab = ({
                   </td>
                   <td className="px-2 py-1.5 text-center">{s.division || "—"}</td>
                   <td className="px-2 py-1.5 text-center">{s.gender || "—"}</td>
-                  <td className="px-2 py-1.5">{s.contact || "—"}</td>
+                  <td className="px-2 py-1.5 text-center">{s.exam_year || "—"}</td>
                   <td className="px-2 py-1.5 text-right whitespace-nowrap">
                     <button onClick={() => onEdit(s)} className="text-primary font-bold text-xs mr-3 hover:underline">Edit</button>
                     <button onClick={() => onDelete(s.id)} className="text-destructive font-bold text-xs hover:underline">Delete</button>
@@ -433,7 +414,6 @@ const StudentsTab = ({
   );
 };
 
-/* ----- INLINE EDIT CELL ----- */
 const InlineEdit = ({
   value, onSave, placeholder, className,
 }: {
@@ -471,7 +451,6 @@ const InlineEdit = ({
   );
 };
 
-/* ----- CSV PARSER (handles quoted fields) ----- */
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let cur: string[] = [];
@@ -495,7 +474,6 @@ function parseCSV(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-/* ----- STUDENT EDIT MODAL ----- */
 const StudentEditModal = ({
   editing, setEditing, onSave, saving,
 }: {
@@ -504,7 +482,8 @@ const StudentEditModal = ({
   onSave: () => void;
   saving: boolean;
 }) => {
-  const set = (k: keyof DBStudent, v: any) => setEditing({ ...editing, [k]: v });
+  const set = <K extends keyof DBStudent>(k: K, v: DBStudent[K] | null | undefined) =>
+    setEditing({ ...editing, [k]: v });
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -520,10 +499,10 @@ const StudentEditModal = ({
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
-          <Field label="Full Name *" full>
-            <input className="input-field uppercase" value={editing.name || ""} onChange={(e) => set("name", e.target.value)} />
+          <Field label="Student Name *" full>
+            <input className="input-field uppercase" value={editing.student_name || ""} onChange={(e) => set("student_name", e.target.value)} />
           </Field>
-          <Field label="Roll No (optional)">
+          <Field label="Roll No">
             <input className="input-field" value={editing.roll_no || ""} onChange={(e) => set("roll_no", e.target.value)} />
           </Field>
           <Field label="Division">
@@ -535,12 +514,6 @@ const StudentEditModal = ({
               <option value="F">F</option>
               <option value="Other">Other</option>
             </select>
-          </Field>
-          <Field label="Date of Birth">
-            <input type="date" className="input-field" value={editing.dob || ""} onChange={(e) => set("dob", e.target.value)} />
-          </Field>
-          <Field label="Contact No">
-            <input className="input-field" value={editing.contact || ""} onChange={(e) => set("contact", e.target.value)} />
           </Field>
           <Field label="Exam Year">
             <input className="input-field" value={editing.exam_year || ""} onChange={(e) => set("exam_year", e.target.value)} />
@@ -566,7 +539,6 @@ const Field = ({ label, full, children }: { label: string; full?: boolean; child
   </label>
 );
 
-/* ----- MARKSHEET TAB ----- */
 const MarksheetTab = ({
   classFilter, students, userMobile,
 }: {
@@ -589,10 +561,8 @@ const MarksheetTab = ({
   const creditSubjects = subjects.filter((s) => s.type === "credit");
   const student = students.find((s) => s.gr_no === grNo);
 
-  // Reset on class change
   useEffect(() => { setGrNo(""); }, [classFilter]);
 
-  // Load saved marks/remarks for this student+term
   useEffect(() => {
     if (!grNo || !term) return;
     let cancelled = false;
@@ -609,9 +579,9 @@ const MarksheetTab = ({
       if (m.data) {
         const mm: Record<string, string> = {};
         const gg: Record<string, GradeValue | ""> = {};
-        m.data.forEach((row: any) => {
+        m.data.forEach((row: { subject: string; marks: number | null; grade: string | null }) => {
           if (row.marks != null) mm[row.subject] = String(row.marks);
-          if (row.grade) gg[row.subject] = row.grade;
+          if (row.grade) gg[row.subject] = row.grade as GradeValue;
         });
         setMarks(mm); setGrades(gg);
       }
@@ -630,14 +600,14 @@ const MarksheetTab = ({
     setSaving(true);
     const marksData = [
       ...regularSubjects.map((sub) => ({
-        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.student_name,
         subject: sub.name,
         marks: Math.max(0, Math.min(MAX_MARKS, Number(marks[sub.name]) || 0)),
         grade: null as string | null,
         entered_by_mobile: userMobile || null,
       })),
       ...creditSubjects.filter((sub) => grades[sub.name]).map((sub) => ({
-        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.student_name,
         subject: sub.name,
         marks: null as number | null,
         grade: grades[sub.name] || null,
@@ -646,19 +616,19 @@ const MarksheetTab = ({
     ];
     const { error: e1 } = await supabase
       .from("marks")
-      .upsert(marksData, { onConflict: "class,term,gr_no,subject" });
+      .upsert(marksData as never, { onConflict: "class,term,gr_no,subject" });
     if (e1) { setSaving(false); return toast.error(`Marks save failed: ${e1.message}`); }
 
     const { error: e2 } = await supabase
       .from("student_term_remarks")
       .upsert({
-        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.student_name,
         remarks, teacher_signature: teacherSig, principal_signature: principalSig,
         entered_by_mobile: userMobile || null,
-      }, { onConflict: "class,term,gr_no" });
+      } as never, { onConflict: "class,term,gr_no" });
     setSaving(false);
     if (e2) return toast.error(`Remarks save failed: ${e2.message}`);
-    toast.success(`Saved marks for ${student.name}`);
+    toast.success(`Saved marks for ${student.student_name}`);
   };
 
   return (
@@ -672,7 +642,7 @@ const MarksheetTab = ({
             <option value="">— Select student —</option>
             {students.map((s) => (
               <option key={s.id} value={s.gr_no}>
-                {s.roll_no ? `#${s.roll_no} • ` : ""}{s.gr_no} • {s.name}
+                {s.roll_no ? `#${s.roll_no} • ` : ""}{s.gr_no} • {s.student_name}
               </option>
             ))}
           </select>
