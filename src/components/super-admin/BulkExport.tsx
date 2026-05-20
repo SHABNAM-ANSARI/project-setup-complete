@@ -18,13 +18,13 @@ export function BulkExport({ className, term }: Props) {
     const studentsQ = supabase
       .from("students")
       .select("gr_no,name,roll_no,division,extra")
-      .eq("class_name", className);
+      .eq("class", className);
     const marksQ = allTerms
-      ? supabase.from("marks").select("gr_no,subject,marks,grade,term").eq("class_name", className)
+      ? supabase.from("marks").select("gr_no,subject,marks,grade,term").eq("class", className)
       : supabase
           .from("marks")
           .select("gr_no,subject,marks,grade,term")
-          .eq("class_name", className)
+          .eq("class", className)
           .eq("term", term);
     const [s, m] = await Promise.all([studentsQ, marksQ]);
     if (s.error) throw new Error(s.error.message);

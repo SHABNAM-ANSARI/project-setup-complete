@@ -6,7 +6,7 @@ import { enabledExtraFields } from "@/lib/portalConfig";
 export interface ParsedMarkRow {
   gr_no: string;
   student_name: string;
-  class_name: string;
+  class: string;
   term: string;
   subject: string;
   marks: number | null;
@@ -18,7 +18,7 @@ export interface ParsedMarkRow {
 export interface ParsedStudentRow {
   gr_no: string;
   name: string;
-  class_name: string;
+  class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
@@ -42,13 +42,13 @@ function normalizeKey(k: string): string {
 
 // Map common header aliases the user might upload to our canonical keys.
 // Strictly limited to columns that exist in the students table:
-// gr_no, student_name/name, roll_no, class/class_name, division, gender, exam_year.
+// gr_no, student_name/name, roll_no, class/class, division, gender, exam_year.
 const STUDENT_ALIASES: Record<string, string> = {
   student_name: "name",
   full_name: "name",
-  class: "class_name",
-  std: "class_name",
-  standard: "class_name",
+  class: "class",
+  std: "class",
+  standard: "class",
   div: "division",
   sex: "gender",
   academic_year: "exam_year",
@@ -94,7 +94,7 @@ export async function parseMarksFile(file: File, defaultClass: string): Promise<
     const out: ParsedMarkRow = {
       gr_no: row.gr_no || "",
       student_name: row.student_name || row.name || "",
-      class_name: canonicalizeClass(row.class_name || "", defaultClass),
+      class: canonicalizeClass(row.class || "", defaultClass),
       term: row.term || "",
       subject: row.subject || "",
       marks: row.marks === "" || row.marks == null ? null : Number(row.marks),
@@ -126,7 +126,7 @@ export async function parseStudentsFile(
     const out: ParsedStudentRow = {
       gr_no: row.gr_no || "",
       name: (row.name || "").replace(/\s+/g, " ").trim().toUpperCase(),
-      class_name: canonicalizeClass(row.class_name || "", defaultClass),
+      class: canonicalizeClass(row.class || "", defaultClass),
       roll_no: row.roll_no || null,
       division: row.division || null,
       gender: row.gender ? row.gender.toUpperCase().slice(0, 1) : null,
@@ -139,7 +139,7 @@ export async function parseStudentsFile(
 }
 
 export function downloadTemplate() {
-  const headers = ["gr_no", "student_name", "class_name", "term", "subject", "marks", "grade"];
+  const headers = ["gr_no", "student_name", "class", "term", "subject", "marks", "grade"];
   const sample = [
     ["1001", "JOHN DOE", "Class 7", "Term 1", "English", "82", ""],
     ["1001", "JOHN DOE", "Class 7", "Term 1", "Maths", "75", ""],

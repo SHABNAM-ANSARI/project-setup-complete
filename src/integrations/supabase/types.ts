@@ -37,7 +37,7 @@ export type Database = {
       }
       marks: {
         Row: {
-          class_name: string
+          class: string
           created_at: string
           entered_by_mobile: string | null
           gr_no: string
@@ -50,7 +50,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          class_name: string
+          class: string
           created_at?: string
           entered_by_mobile?: string | null
           gr_no: string
@@ -63,7 +63,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          class_name?: string
+          class?: string
           created_at?: string
           entered_by_mobile?: string | null
           gr_no?: string
@@ -79,7 +79,7 @@ export type Database = {
       }
       student_term_remarks: {
         Row: {
-          class_name: string
+          class: string
           created_at: string
           entered_by_mobile: string | null
           gr_no: string
@@ -92,7 +92,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          class_name: string
+          class: string
           created_at?: string
           entered_by_mobile?: string | null
           gr_no: string
@@ -105,7 +105,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          class_name?: string
+          class?: string
           created_at?: string
           entered_by_mobile?: string | null
           gr_no?: string
@@ -122,7 +122,7 @@ export type Database = {
       students: {
         Row: {
           address: string | null
-          class_name: string
+          class: string
           contact: string | null
           created_at: string
           division: string | null
@@ -138,7 +138,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          class_name: string
+          class: string
           contact?: string | null
           created_at?: string
           division?: string | null
@@ -154,7 +154,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          class_name?: string
+          class?: string
           contact?: string | null
           created_at?: string
           division?: string | null

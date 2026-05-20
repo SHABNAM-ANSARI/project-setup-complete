@@ -10,7 +10,7 @@ interface StudentRow {
   id: string;
   gr_no: string;
   name: string;
-  class_name: string;
+  class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
@@ -39,8 +39,8 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("id,gr_no,name,class_name,roll_no,division,gender")
-      .eq("class_name", className)
+      .select("id,gr_no,name,class,roll_no,division,gender")
+      .eq("class", className)
       .order("roll_no", { ascending: true });
     if (error) toast.error(error.message);
     setStudents((data as StudentRow[]) || []);
@@ -103,7 +103,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
         .from("marks")
         .update(cascade)
         .eq("gr_no", original.gr_no)
-        .eq("class_name", original.class_name);
+        .eq("class", original.class);
       if (mErr) toast.error(`Marks sync failed: ${mErr.message}`);
     }
 
@@ -143,7 +143,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
     const payload = valid.map((r) => ({
       gr_no: r.gr_no,
       name: r.name,
-      class_name: r.class_name,
+      class: r.class,
       roll_no: r.roll_no,
       division: r.division,
       gender: r.gender,
@@ -152,7 +152,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
 
     const { error } = await supabase
       .from("students")
-      .upsert(payload, { onConflict: "gr_no,class_name" });
+      .upsert(payload, { onConflict: "gr_no,class" });
     setImporting(false);
     if (error) return toast.error(`Import failed: ${error.message}`);
     toast.success(`Imported ${payload.length} students`);
@@ -258,7 +258,7 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
                     <td className="px-2 py-1">{r._row}</td>
                     <td className="px-2 py-1 font-mono">{r.gr_no}</td>
                     <td className="px-2 py-1">{r.name}</td>
-                    <td className="px-2 py-1">{r.class_name}</td>
+                    <td className="px-2 py-1">{r.class}</td>
                     <td className="px-2 py-1">{r.roll_no}</td>
                     <td className="px-2 py-1">{r.division}</td>
                     <td className="px-2 py-1">{r._error ? `❌ ${r._error}` : "✅ OK"}</td>

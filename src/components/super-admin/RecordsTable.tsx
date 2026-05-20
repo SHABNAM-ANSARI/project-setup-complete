@@ -10,7 +10,7 @@ interface StudentRow {
   id: string;
   gr_no: string;
   name: string;
-  class_name: string;
+  class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
@@ -21,7 +21,7 @@ interface MarkRecord {
   id: string;
   gr_no: string;
   student_name: string;
-  class_name: string;
+  class: string;
   subject: string;
   term: string;
   marks: number | null;
@@ -51,13 +51,13 @@ export function RecordsTable({ className, term }: Props) {
     const [s, m] = await Promise.all([
       supabase
         .from("students")
-        .select("id,gr_no,name,class_name,roll_no,division,gender,extra")
-        .eq("class_name", className)
+        .select("id,gr_no,name,class,roll_no,division,gender,extra")
+        .eq("class", className)
         .order("roll_no", { ascending: true }),
       supabase
         .from("marks")
-        .select("id,gr_no,student_name,class_name,subject,term,marks,grade")
-        .eq("class_name", className)
+        .select("id,gr_no,student_name,class,subject,term,marks,grade")
+        .eq("class", className)
         .eq("term", term)
         .order("gr_no", { ascending: true }),
     ]);

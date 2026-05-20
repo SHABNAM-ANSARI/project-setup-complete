@@ -64,7 +64,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
         const payload = (validRows as ParsedMarkRow[]).map((r) => ({
           gr_no: r.gr_no,
           student_name: r.student_name,
-          class_name: r.class_name,
+          class: r.class,
           term: r.term,
           subject: r.subject,
           marks: r.marks,
@@ -80,7 +80,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
         const payload = (validRows as ParsedStudentRow[]).map((r) => ({
           gr_no: r.gr_no,
           name: r.name,
-          class_name: r.class_name,
+          class: r.class,
           roll_no: r.roll_no,
           division: r.division,
           gender: r.gender,
@@ -211,7 +211,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
                       <td className="px-2 py-1 font-mono">{r._row}</td>
                       <td className="px-2 py-1">{r.gr_no}</td>
                       <td className="px-2 py-1">{r.student_name}</td>
-                      <td className="px-2 py-1">{r.class_name}</td>
+                      <td className="px-2 py-1">{r.class}</td>
                       <td className="px-2 py-1">{r.term}</td>
                       <td className="px-2 py-1">{r.subject}</td>
                       <td className="px-2 py-1 text-right">{r.marks ?? ""}</td>
@@ -244,7 +244,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
                       <td className="px-2 py-1 font-mono">{r._row}</td>
                       <td className="px-2 py-1">{r.gr_no}</td>
                       <td className="px-2 py-1">{r.name}</td>
-                      <td className="px-2 py-1">{r.class_name}</td>
+                      <td className="px-2 py-1">{r.class}</td>
                       <td className="px-2 py-1">{r.roll_no || ""}</td>
                       <td className="px-2 py-1">{r.division || ""}</td>
                       <td className="px-2 py-1">{r.gender || ""}</td>

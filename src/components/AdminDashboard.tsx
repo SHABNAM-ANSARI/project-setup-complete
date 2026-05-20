@@ -22,7 +22,7 @@ interface AdminDashboardProps {
 interface DBStudent {
   id: string;
   gr_no: string;
-  class_name: string;
+  class: string;
   name: string;
   roll_no: string | null;
   division: string | null;
@@ -34,7 +34,7 @@ interface DBStudent {
 
 const emptyStudent = (cls: string): Partial<DBStudent> => ({
   gr_no: "",
-  class_name: cls,
+  class: cls,
   name: "",
   roll_no: "",
   division: "A",
@@ -69,7 +69,7 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
     const { data, error } = await supabase
       .from("students")
       .select("*")
-      .eq("class_name", cls)
+      .eq("class", cls)
       .order("name");
     setLoading(false);
     if (error) {
@@ -85,14 +85,14 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
 
   const saveStudent = async () => {
     if (!editing) return;
-    if (!editing.gr_no || !editing.name || !editing.class_name) {
+    if (!editing.gr_no || !editing.name || !editing.class) {
       toast.error("GR No, Name, and Class are required");
       return;
     }
     setSaving(true);
     const payload: any = {
       gr_no: editing.gr_no,
-      class_name: editing.class_name,
+      class: editing.class,
       name: editing.name,
       roll_no: editing.roll_no || null,
       division: editing.division || null,
@@ -103,7 +103,7 @@ const AdminDashboard = ({ userMobile }: AdminDashboardProps) => {
     };
     const { error } = await supabase
       .from("students")
-      .upsert(payload, { onConflict: "gr_no,class_name" });
+      .upsert(payload, { onConflict: "gr_no,class" });
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -292,7 +292,7 @@ const StudentsTab = ({
       const idx = (k: string) => header.indexOf(k);
       const cGr = idx("gr_no") !== -1 ? idx("gr_no") : idx("gr no");
       const cName = idx("name");
-      const cClass = idx("class_name") !== -1 ? idx("class_name") : idx("class");
+      const cClass = idx("class") !== -1 ? idx("class") : idx("class");
       const cRoll = idx("roll_no") !== -1 ? idx("roll_no") : idx("roll");
       const cDiv = idx("division") !== -1 ? idx("division") : idx("div");
       const cGender = idx("gender");
@@ -312,7 +312,7 @@ const StudentsTab = ({
         .map((r) => ({
           gr_no: (r[cGr] || "").trim(),
           name: (r[cName] || "").trim(),
-          class_name: (cClass !== -1 ? (r[cClass] || "").trim() : "") || classFilter,
+          class: (cClass !== -1 ? (r[cClass] || "").trim() : "") || classFilter,
           roll_no: cRoll !== -1 ? ((r[cRoll] || "").trim() || null) : null,
           division: cDiv !== -1 ? ((r[cDiv] || "").trim() || null) : null,
           gender: cGender !== -1 ? ((r[cGender] || "").trim() || null) : null,
@@ -330,7 +330,7 @@ const StudentsTab = ({
 
       const { error } = await supabase
         .from("students")
-        .upsert(payload, { onConflict: "gr_no,class_name" });
+        .upsert(payload, { onConflict: "gr_no,class" });
       if (error) {
         toast.error(`Import failed: ${error.message}`);
         return;
@@ -361,7 +361,7 @@ const StudentsTab = ({
             onClick={() => fileRef.current?.click()}
             disabled={importing}
             className="border-2 border-primary text-primary px-3 py-2 rounded-md font-bold text-sm hover:bg-primary/10 disabled:opacity-50"
-            title="CSV columns: gr_no, name, class_name, roll_no (optional), division, gender, dob, parent_name, contact, address"
+            title="CSV columns: gr_no, name, class, roll_no (optional), division, gender, dob, parent_name, contact, address"
           >
             {importing ? "Importing…" : "📥 Bulk Import CSV"}
           </button>
@@ -516,7 +516,7 @@ const StudentEditModal = ({
             <input className="input-field" value={editing.gr_no || ""} onChange={(e) => set("gr_no", e.target.value)} />
           </Field>
           <Field label="Class *">
-            <select className="input-field" value={editing.class_name || ""} onChange={(e) => set("class_name", e.target.value)}>
+            <select className="input-field" value={editing.class || ""} onChange={(e) => set("class", e.target.value)}>
               {CLASS_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
@@ -601,9 +601,9 @@ const MarksheetTab = ({
       setMarks({}); setGrades({}); setRemarks(""); setTeacherSig(""); setPrincipalSig("");
       const [m, r] = await Promise.all([
         supabase.from("marks").select("subject, marks, grade")
-          .eq("class_name", classFilter).eq("term", term).eq("gr_no", grNo),
+          .eq("class", classFilter).eq("term", term).eq("gr_no", grNo),
         supabase.from("student_term_remarks").select("remarks, teacher_signature, principal_signature")
-          .eq("class_name", classFilter).eq("term", term).eq("gr_no", grNo).maybeSingle(),
+          .eq("class", classFilter).eq("term", term).eq("gr_no", grNo).maybeSingle(),
       ]);
       if (cancelled) return;
       if (m.data) {
@@ -630,14 +630,14 @@ const MarksheetTab = ({
     setSaving(true);
     const marksData = [
       ...regularSubjects.map((sub) => ({
-        class_name: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
         subject: sub.name,
         marks: Math.max(0, Math.min(MAX_MARKS, Number(marks[sub.name]) || 0)),
         grade: null as string | null,
         entered_by_mobile: userMobile || null,
       })),
       ...creditSubjects.filter((sub) => grades[sub.name]).map((sub) => ({
-        class_name: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
         subject: sub.name,
         marks: null as number | null,
         grade: grades[sub.name] || null,
@@ -646,16 +646,16 @@ const MarksheetTab = ({
     ];
     const { error: e1 } = await supabase
       .from("marks")
-      .upsert(marksData, { onConflict: "class_name,term,gr_no,subject" });
+      .upsert(marksData, { onConflict: "class,term,gr_no,subject" });
     if (e1) { setSaving(false); return toast.error(`Marks save failed: ${e1.message}`); }
 
     const { error: e2 } = await supabase
       .from("student_term_remarks")
       .upsert({
-        class_name: classFilter, term, gr_no: student.gr_no, student_name: student.name,
+        class: classFilter, term, gr_no: student.gr_no, student_name: student.name,
         remarks, teacher_signature: teacherSig, principal_signature: principalSig,
         entered_by_mobile: userMobile || null,
-      }, { onConflict: "class_name,term,gr_no" });
+      }, { onConflict: "class,term,gr_no" });
     setSaving(false);
     if (e2) return toast.error(`Remarks save failed: ${e2.message}`);
     toast.success(`Saved marks for ${student.name}`);
