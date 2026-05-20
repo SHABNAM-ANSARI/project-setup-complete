@@ -9,12 +9,11 @@ import { usePortalConfig, enabledExtraFields } from "@/lib/portalConfig";
 interface StudentRow {
   id: string;
   gr_no: string;
-  name: string;
+  student_name: string;
   class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
-  extra: Record<string, string> | null;
 }
 
 interface MarkRecord {
@@ -51,7 +50,7 @@ export function RecordsTable({ className, term }: Props) {
     const [s, m] = await Promise.all([
       supabase
         .from("students")
-        .select("id,gr_no,name,class,roll_no,division,gender,extra")
+        .select("id,gr_no,student_name,class,roll_no,division,gender")
         .eq("class", className)
         .order("roll_no", { ascending: true }),
       supabase
@@ -63,8 +62,8 @@ export function RecordsTable({ className, term }: Props) {
     ]);
     if (s.error) toast.error(s.error.message);
     if (m.error) toast.error(m.error.message);
-    setStudents((s.data as StudentRow[]) || []);
-    setMarks((m.data as MarkRecord[]) || []);
+    setStudents((s.data as unknown as StudentRow[]) || []);
+    setMarks((m.data as unknown as MarkRecord[]) || []);
     setLoading(false);
   };
 
@@ -77,7 +76,7 @@ export function RecordsTable({ className, term }: Props) {
     if (!q) return students;
     return students.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) ||
+        s.student_name.toLowerCase().includes(q) ||
         s.gr_no.toLowerCase().includes(q) ||
         (s.roll_no || "").toLowerCase().includes(q),
     );
@@ -107,10 +106,9 @@ export function RecordsTable({ className, term }: Props) {
     return out;
   }, [students, marks, subjects]);
 
-  const startEdit = (id: string, current: Record<string, any>) => {
+  const startEdit = (id: string, current: Record<string, unknown>) => {
     setEditId(id);
-    const extra = (current.extra && typeof current.extra === "object") ? current.extra : {};
-    setDraft({ ...current, ...Object.fromEntries(extraCols.map((c) => [`extra_${c.key}`, extra[c.key] || ""])) });
+    setDraft({ ...current });
   };
 
   const cancelEdit = () => {
@@ -120,21 +118,15 @@ export function RecordsTable({ className, term }: Props) {
 
   const saveStudent = async () => {
     const id = editId!;
-    const extra: Record<string, string> = {};
-    for (const c of extraCols) {
-      const v = String(draft[`extra_${c.key}`] || "").trim();
-      if (v) extra[c.key] = v;
-    }
     const { error } = await supabase
       .from("students")
       .update({
-        name: String(draft.name || "").toUpperCase(),
+        student_name: String(draft.student_name || "").toUpperCase(),
         roll_no: (draft.roll_no as string) || null,
         division: (draft.division as string) || null,
         gender: (draft.gender as string) || null,
-        extra,
         updated_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Student updated");
