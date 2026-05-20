@@ -42,7 +42,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
         setStudentRows([]);
         toast.success(`Parsed ${parsed.length} mark rows from ${f.name}`);
       } else {
-        const parsed = await parseStudentsFile(f, defaultClass, config);
+        const parsed = await parseStudentsFile(f, defaultClass);
         setStudentRows(parsed);
         setMarkRows([]);
         toast.success(`Parsed ${parsed.length} student rows from ${f.name}`);
@@ -79,18 +79,18 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
       } else {
         const payload = (validRows as ParsedStudentRow[]).map((r) => ({
           gr_no: r.gr_no,
-          name: r.name,
+          student_name: r.student_name,
           class: r.class,
           roll_no: r.roll_no,
           division: r.division,
           gender: r.gender,
-          extra: r.extra,
+          exam_year: r.exam_year,
           updated_at: new Date().toISOString(),
         }));
         for (let i = 0; i < payload.length; i += 200) {
           const { error } = await supabase
             .from("students")
-            .upsert(payload.slice(i, i + 200), { onConflict: "gr_no" });
+            .upsert(payload.slice(i, i + 200) as never, { onConflict: "gr_no,class" });
           if (error) throw error;
         }
         toast.success(`Imported ${payload.length} students`);
@@ -120,7 +120,7 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
             </p>
           </div>
           <button
-            onClick={() => (mode === "marks" ? downloadTemplate() : downloadStudentsTemplate(config))}
+            onClick={() => (mode === "marks" ? downloadTemplate() : downloadStudentsTemplate())}
             className="text-sm font-bold text-primary hover:underline flex items-center gap-1 whitespace-nowrap"
           >
             <FileDown className="w-4 h-4" /> Template
@@ -243,13 +243,13 @@ export function BulkMarksUpload({ defaultClass, onImported }: Props) {
                     <tr key={r._row} className={`border-t border-border ${r._error ? "bg-destructive/5" : ""}`}>
                       <td className="px-2 py-1 font-mono">{r._row}</td>
                       <td className="px-2 py-1">{r.gr_no}</td>
-                      <td className="px-2 py-1">{r.name}</td>
+                      <td className="px-2 py-1">{r.student_name}</td>
                       <td className="px-2 py-1">{r.class}</td>
                       <td className="px-2 py-1">{r.roll_no || ""}</td>
                       <td className="px-2 py-1">{r.division || ""}</td>
                       <td className="px-2 py-1">{r.gender || ""}</td>
                       {extraCols.map((c) => (
-                        <td key={c.key} className="px-2 py-1">{r.extra[c.key] || ""}</td>
+                        <td key={c.key} className="px-2 py-1">{""}</td>
                       ))}
                       <td className="px-2 py-1">{r._error ? <span className="text-destructive">{r._error}</span> : <span className="text-accent">OK</span>}</td>
                     </tr>
