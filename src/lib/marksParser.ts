@@ -1,7 +1,6 @@
-// Parse CSV/XLSX files for both marks and students (dynamic fields).
+// Parse CSV/XLSX files for both marks and students.
+// Canonical CSV columns: gr_no, student_name, class, roll_no, division, gender, exam_year
 import * as XLSX from "xlsx";
-import type { ExtraFieldKey, PortalConfig } from "@/lib/portalConfig";
-import { enabledExtraFields } from "@/lib/portalConfig";
 
 export interface ParsedMarkRow {
   gr_no: string;
@@ -17,18 +16,18 @@ export interface ParsedMarkRow {
 
 export interface ParsedStudentRow {
   gr_no: string;
-  name: string;
+  student_name: string;
   class: string;
   roll_no: string | null;
   division: string | null;
   gender: string | null;
-  extra: Record<string, string>;
+  exam_year: string | null;
   _row: number;
   _error?: string;
 }
 
 const REQ_MARKS = ["gr_no", "student_name", "subject", "term"];
-const REQ_STUDENTS = ["gr_no", "name"];
+const REQ_STUDENTS = ["gr_no", "student_name"];
 
 // Normalize ANY header into snake_case: lower-case, collapse any run of
 // non-alphanumeric chars (spaces, dashes, dots, multiple underscores) to a
@@ -41,12 +40,11 @@ function normalizeKey(k: string): string {
 }
 
 // Map common header aliases the user might upload to our canonical keys.
-// Strictly limited to columns that exist in the students table:
-// gr_no, student_name/name, roll_no, class/class, division, gender, exam_year.
-const STUDENT_ALIASES: Record<string, string> = {
-  student_name: "name",
-  full_name: "name",
-  class: "class",
+// Canonical: gr_no, student_name, class, roll_no, division, gender, exam_year.
+const ALIASES: Record<string, string> = {
+  name: "student_name",
+  full_name: "student_name",
+  class_name: "class",
   std: "class",
   standard: "class",
   div: "division",
@@ -59,7 +57,7 @@ const STUDENT_ALIASES: Record<string, string> = {
 function applyAliases(row: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(row)) {
-    out[STUDENT_ALIASES[k] ?? k] = v;
+    out[ALIASES[k] ?? k] = v;
   }
   return out;
 }
@@ -90,10 +88,10 @@ export async function parseMarksFile(file: File, defaultClass: string): Promise<
     const raw: Record<string, string> = {};
     for (const k of Object.keys(rawRow)) raw[normalizeKey(k)] = String((rawRow as Record<string, unknown>)[k] ?? "").trim();
     const row = applyAliases(raw);
-    const missing = REQ_MARKS.filter((k) => !row[k] && !(k === "student_name" && row.name));
+    const missing = REQ_MARKS.filter((k) => !row[k]);
     const out: ParsedMarkRow = {
       gr_no: row.gr_no || "",
-      student_name: row.student_name || row.name || "",
+      student_name: row.student_name || "",
       class: canonicalizeClass(row.class || "", defaultClass),
       term: row.term || "",
       subject: row.subject || "",
@@ -111,26 +109,21 @@ export async function parseMarksFile(file: File, defaultClass: string): Promise<
 export async function parseStudentsFile(
   file: File,
   defaultClass: string,
-  cfg: PortalConfig,
 ): Promise<ParsedStudentRow[]> {
   const json = readSheet(await file.arrayBuffer());
-  const enabled = enabledExtraFields(cfg).map((f) => f.key);
   return json.map((rawRow, i) => {
     const raw: Record<string, string> = {};
     for (const k of Object.keys(rawRow)) raw[normalizeKey(k)] = String((rawRow as Record<string, unknown>)[k] ?? "").trim();
     const row = applyAliases(raw);
     const missing = REQ_STUDENTS.filter((k) => !row[k]);
-    const extra: Record<string, string> = {};
-    for (const key of enabled) if (row[key]) extra[key] = row[key];
-    if (row.exam_year) extra.exam_year = row.exam_year;
     const out: ParsedStudentRow = {
       gr_no: row.gr_no || "",
-      name: (row.name || "").replace(/\s+/g, " ").trim().toUpperCase(),
+      student_name: (row.student_name || "").replace(/\s+/g, " ").trim().toUpperCase(),
       class: canonicalizeClass(row.class || "", defaultClass),
       roll_no: row.roll_no || null,
       division: row.division || null,
       gender: row.gender ? row.gender.toUpperCase().slice(0, 1) : null,
-      extra,
+      exam_year: row.exam_year || null,
       _row: i + 2,
     };
     if (missing.length) out._error = `Missing: ${missing.join(", ")}`;
@@ -151,17 +144,16 @@ export function downloadTemplate() {
   XLSX.writeFile(wb, "marks_template.xlsx");
 }
 
-export function downloadStudentsTemplate(cfg: PortalConfig) {
-  const extraKeys = enabledExtraFields(cfg).map((f) => f.key) as ExtraFieldKey[];
-  // Canonical headers requested by the spec — Roman numerals + "class" + "academic_year" also accepted.
-  const headers = ["student_name", "roll_no", "gr_no", "class", "division", "gender", "exam_year", ...extraKeys];
+export function downloadStudentsTemplate() {
+  const headers = ["gr_no", "student_name", "class", "roll_no", "division", "gender", "exam_year"];
   const sample = [
-    ["JOHN DOE", "1", "1001", "I", "A", "M", "2026-27", ...extraKeys.map(() => "")],
-    ["JANE DOE", "2", "1002", "Class 7", "B", "F", "2026-27", ...extraKeys.map(() => "")],
+    ["1001", "JOHN DOE", "Class 7", "1", "A", "M", "2026-27"],
+    ["1002", "JANE DOE", "Class 7", "2", "B", "F", "2026-27"],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Students");
   XLSX.writeFile(wb, "students_template.xlsx");
 }
+
 
