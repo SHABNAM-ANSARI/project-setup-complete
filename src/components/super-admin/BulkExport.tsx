@@ -17,7 +17,7 @@ export function BulkExport({ className, term }: Props) {
   const fetchData = async (allTerms: boolean) => {
     const studentsQ = supabase
       .from("students")
-      .select("gr_no,name,roll_no,division,extra")
+      .select("gr_no,student_name,roll_no,division")
       .eq("class", className);
     const marksQ = allTerms
       ? supabase.from("marks").select("gr_no,subject,marks,grade,term").eq("class", className)
