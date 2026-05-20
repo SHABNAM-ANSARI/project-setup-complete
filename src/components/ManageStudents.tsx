@@ -148,10 +148,6 @@ export default function ManageStudents({ isAdmin, defaultClass }: Props) {
       division: r.division,
       gender: r.gender,
       exam_year: r.extra?.exam_year ?? "2026-27",
-      parent_name: r.extra?.parent_name ?? null,
-      address: r.extra?.address ?? null,
-      dob: r.extra?.dob ?? null,
-      contact: r.extra?.phone ?? null,
     }));
 
     const { error } = await supabase
