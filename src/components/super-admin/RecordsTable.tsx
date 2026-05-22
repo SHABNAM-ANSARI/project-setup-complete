@@ -245,10 +245,10 @@ export function RecordsTable({ className, term }: Props) {
                       {isEdit ? (
                         <input
                           className="input-field py-1"
-                          value={(draft.name as string) || ""}
-                          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                          value={(draft.student_name as string) || ""}
+                          onChange={(e) => setDraft({ ...draft, student_name: e.target.value })}
                         />
-                      ) : s.name}
+                      ) : s.student_name}
                     </td>
                     <td className="px-3 py-2">
                       {isEdit ? (
