@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import DunnesHeader from "./DunnesHeader";
 import signature from "@/assets/principal-signature.png";
-import { STUDENTS_BY_CLASS, getTeacherForClass } from "@/data/schoolData";
+import { getTeacherForClass } from "@/data/schoolData";
+import { useStudentsByClass } from "@/hooks/useStudentsByClass";
 import {
   getSubjectsForClass,
   GRADE_OPTIONS,
@@ -54,16 +55,17 @@ const MarksheetEntry = ({ selectedClass, selectedTerm, userMobile }: MarksheetEn
   const creditSubjects = useMemo(() => subjects.filter((s) => s.type === "credit"), [subjects]);
   const classTeacher = getTeacherForClass(selectedClass);
 
+  const { students: classRoster } = useStudentsByClass(selectedClass);
+
   const baseStudents = useMemo<Student[]>(() => {
-    const csvStudents = STUDENTS_BY_CLASS[selectedClass] || [];
-    return csvStudents.map((s, idx) => ({
+    return classRoster.map((s, idx) => ({
       grNo: s.grNo,
       name: s.name,
       rollNo: s.rollNo || String(idx + 1),
       marks: Object.fromEntries(regularSubjects.map((sub) => [sub.name, 0])),
       grades: Object.fromEntries(creditSubjects.map((sub) => [sub.name, ""])) as Record<string, GradeValue | "">,
     }));
-  }, [selectedClass, regularSubjects, creditSubjects]);
+  }, [classRoster, regularSubjects, creditSubjects]);
 
   const [students, setStudents] = useState<Student[]>(baseStudents);
   const [remarksByGr, setRemarksByGr] = useState<Record<string, RemarksRow>>({});

@@ -2,7 +2,8 @@ import { useState } from "react";
 import MarksheetEntry from "./MarksheetEntry";
 import AdminDashboard from "./AdminDashboard";
 import ManageStudents from "./ManageStudents";
-import { CLASS_OPTIONS, STUDENTS_BY_CLASS, getTeacherForClass } from "@/data/schoolData";
+import { CLASS_OPTIONS, getTeacherForClass } from "@/data/schoolData";
+import { useStudentsByClass } from "@/hooks/useStudentsByClass";
 import { TERM_OPTIONS } from "@/data/subjectMapping";
 
 interface DashboardProps {
@@ -21,7 +22,8 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
   const [selectedTerm, setSelectedTerm] = useState("");
   const [showEntry, setShowEntry] = useState(false);
 
-  const studentCount = selectedClass ? (STUDENTS_BY_CLASS[selectedClass]?.length || 0) : 0;
+  const { students: classStudents, loading: studentsLoading } = useStudentsByClass(selectedClass);
+  const studentCount = classStudents.length;
   const classTeacher = selectedClass ? getTeacherForClass(selectedClass) : "";
 
   const goHome = () => {
@@ -167,7 +169,9 @@ const Dashboard = ({ onLogout, userEmail, isAdmin, userMobile, onChangePassword 
 
             {selectedClass && (
               <div className="mt-4 p-3 bg-primary/5 rounded-lg text-sm">
-                <span className="font-bold text-primary">Students: {studentCount}</span>
+                <span className="font-bold text-primary">
+                  Students: {studentsLoading ? "…" : studentCount}
+                </span>
                 {classTeacher && <span className="ml-4 text-muted-foreground">Class Teacher: <strong>{classTeacher}</strong></span>}
               </div>
             )}
