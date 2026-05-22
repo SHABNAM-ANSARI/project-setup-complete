@@ -245,10 +245,10 @@ export function RecordsTable({ className, term }: Props) {
                       {isEdit ? (
                         <input
                           className="input-field py-1"
-                          value={(draft.name as string) || ""}
-                          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                          value={(draft.student_name as string) || ""}
+                          onChange={(e) => setDraft({ ...draft, student_name: e.target.value })}
                         />
-                      ) : s.name}
+                      ) : s.student_name}
                     </td>
                     <td className="px-3 py-2">
                       {isEdit ? (
@@ -280,7 +280,7 @@ export function RecordsTable({ className, term }: Props) {
                             value={String(draft[`extra_${c.key}`] || "")}
                             onChange={(e) => setDraft({ ...draft, [`extra_${c.key}`]: e.target.value })}
                           />
-                        ) : (s.extra?.[c.key] || "")}
+                        ) : ""}
                       </td>
                     ))}
                     <td className="px-3 py-2 text-right">{sum?.total ?? 0}/{sum?.outOf ?? 0}</td>
@@ -294,7 +294,7 @@ export function RecordsTable({ className, term }: Props) {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => startEdit(s.id, s)} className="text-primary font-bold text-xs mr-3 inline-flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button>
+                          <button onClick={() => startEdit(s.id, s as unknown as Record<string, unknown>)} className="text-primary font-bold text-xs mr-3 inline-flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button>
                           <button onClick={() => deleteStudent(s.id)} className="text-destructive font-bold text-xs inline-flex items-center gap-1"><Trash2 className="w-3 h-3" />Delete</button>
                         </>
                       )}
@@ -372,7 +372,7 @@ export function RecordsTable({ className, term }: Props) {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => startEdit(m.id, m)} className="text-primary font-bold text-xs mr-3 inline-flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button>
+                          <button onClick={() => startEdit(m.id, m as unknown as Record<string, unknown>)} className="text-primary font-bold text-xs mr-3 inline-flex items-center gap-1"><Edit3 className="w-3 h-3" />Edit</button>
                           <button onClick={() => deleteMark(m.id)} className="text-destructive font-bold text-xs inline-flex items-center gap-1"><Trash2 className="w-3 h-3" />Delete</button>
                         </>
                       )}
